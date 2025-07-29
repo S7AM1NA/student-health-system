@@ -14,6 +14,48 @@ from .serializers import (
     MealItemSerializer
 )
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+
+def index_view(request):
+    """
+    应用的统一入口。
+    - 已登录 -> 跳转到看板
+    - 未登录 -> 跳转到登录页
+    """
+    if request.user.is_authenticated:
+        return redirect('dashboard') # 重定向到 name='dashboard' 的URL -> /dashboard/
+    else:
+        return redirect('login')     # 重定向到 name='login' 的URL -> /login/
+
+
+def login_page_view(request):
+    """
+    渲染登录页面。如果用户已登录还尝试访问此页，则直接送回看板。
+    """
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    # 告诉Django去 'frontend' 文件夹里找 login.html
+    return render(request, 'login.html') 
+
+
+def register_page_view(request):
+    """
+    渲染注册页面。
+    """
+    # 告诉Django去 'frontend' 文件夹里找 register.html
+    return render(request, 'register.html')
+
+@login_required(login_url='/login/') # 关键保护！
+def dashboard_page_view(request):
+    """
+    渲染主看板页面。
+    @login_required 装饰器确保只有登录用户能访问。
+    如果未登录的用户尝试直接访问 /dashboard/，会自动被重定向到 /login/。
+    """
+    # 告诉Django去 'frontend' 文件夹里找 dashboard.html
+    return render(request, 'dashboard.html')
+
 @csrf_exempt # 临时禁用CSRF保护，方便前端直接调用
 def register_view(request):
     if request.method == 'POST':

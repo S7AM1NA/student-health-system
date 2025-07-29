@@ -1,0 +1,203 @@
+/* [文件名: frontend/css/auth.css] */
+
+:root {
+    --bg-color: #f0f2f5;
+    --card-bg-color: #ffffff;
+    --text-color: #333333;
+    --link-color: #555555;
+    --input-bg-color: #f7f7f7;
+    --input-border-color: #e0e0e0;
+    --button-bg-color: #f1c40f;
+    --button-text-color: #ffffff;
+    --card-shadow-color: rgba(0, 0, 0, 0.1);
+    --card-hover-shadow-color: rgba(0, 0, 0, 0.15);
+    --switch-icon-url: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-moon-stars-fill" viewBox="0 0 16 16"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162h1.234a.217.217 0 0 1 .153.372l-.998.724.387 1.162a.217.217 0 0 1-.316.242l-1.002-.724-1.002.724a.217.217 0 0 1-.316-.242l.387-1.162-.998-.724a.217.217 0 0 1 .153-.372h1.234l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a.774.774 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a.774.774 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774.258c.346-.115.617-.386.732-.732L13.863.1z"/></svg>');
+}
+
+body.dark-mode {
+    --bg-color: #212c3d;
+    --card-bg-color: #2c3e50;
+    --text-color: #f0f2f5;
+    --link-color: #bdc3c7;
+    --input-bg-color: #34495e;
+    --input-border-color: #4a627a;
+    --button-text-color: #2c3e50;
+    --card-shadow-color: rgba(0, 0, 0, 0.2);
+    --card-hover-shadow-color: rgba(0, 0, 0, 0.3);
+    --switch-icon-url: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sun-fill" viewBox="0 0 16 16"><path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/></svg>');
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    transition: background-color .3s, color .3s
+}
+
+.theme-switch-button {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--card-bg-color);
+    box-shadow: 0 4px 8px var(--card-shadow-color);
+    border: none;
+    cursor: pointer;
+    transition: all .3s ease;
+    background-image: var(--switch-icon-url);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 16px 16px
+}
+
+.theme-switch-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 16px var(--card-hover-shadow-color)
+}
+
+.form-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 40px;
+    background-color: var(--card-bg-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--card-shadow-color);
+    text-align: center;
+    transition: background-color .3s, box-shadow .3s;
+    margin: 20px
+}
+
+.form-container h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    font-weight: 600
+}
+
+.form-container p {
+    font-size: 14px;
+    color: var(--link-color);
+    margin-bottom: 30px;
+    transition: color .3s
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left
+}
+
+.input-group label {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 8px;
+    font-weight: 500
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border-color);
+    background-color: var(--input-bg-color);
+    color: var(--text-color);
+    font-size: 16px;
+    transition: all .3s
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--button-bg-color)
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--button-bg-color);
+    color: var(--button-text-color);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity .2s, background-color .3s, color .3s
+}
+
+.submit-btn:hover {
+    opacity: .9
+}
+
+.switch-link {
+    margin-top: 25px;
+    font-size: 14px
+}
+
+.switch-link a {
+    color: var(--link-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color .3s
+}
+
+.switch-link a:hover {
+    text-decoration: underline
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    padding-right: 45px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #aaa;
+    transition: color .2s;
+}
+
+.toggle-password:hover {
+    color: var(--text-color);
+}
+
+.toggle-password svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+.response-message {
+    padding: 10px;
+    margin-top: 20px;
+    border-radius: 8px;
+    display: none;
+}
+
+.response-message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.response-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}

@@ -19,6 +19,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # 将所有/api/开头的请求都转发到core.urls去处理
-    path('api/', include('core.urls')), 
+    # 将其他请求都转发到core.urls去处理
+   path('', include('core.urls')),
 ]

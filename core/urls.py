@@ -1,14 +1,24 @@
 from django.urls import path, include
-from . import views
 from rest_framework.routers import DefaultRouter
 from .views import (
+    index_view,
+    login_page_view,
+    register_page_view,
+    dashboard_page_view,
+
+    register_view,
+    login_view, 
+    logout_view,
+    DashboardView,
     SleepRecordViewSet, 
     SportRecordViewSet, 
     FoodItemViewSet, 
     MealViewSet, 
     MealItemViewSet
 )
-from .views import DashboardView # 导入新的视图
+
+from django.conf import settings
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 router = DefaultRouter()
 router.register(r'sleep', SleepRecordViewSet, basename='sleeprecord')
@@ -18,9 +28,40 @@ router.register(r'meals', MealViewSet, basename='meal')
 router.register(r'meal-items', MealItemViewSet, basename='mealitem')
 
 urlpatterns = [
-    path('register/', views.register_view, name='register'),
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('api/dashboard/<str:date_str>/', DashboardView.as_view(), name='dashboard'),
+# ==========================================================
+    #  页面路由 (Page Routes)
+    # ==========================================================
+    
+    # 将根路径 '/' 指向新的 index_view 视图，作为应用的统一入口
+    path('', index_view, name='index'), 
+
+    # 将 '/login/' 路径指向 login_page_view 视图，它只负责显示登录页面
+    path('login/', login_page_view, name='login'),
+
+    # 将 '/register/' 路径指向 register_page_view 视图
+    path('register/', register_page_view, name='register'),
+    
+    # 将 '/dashboard/' 路径指向受保护的 dashboard_page_view 视图
+    path('dashboard/', dashboard_page_view, name='dashboard'),
+
+
+    # ==========================================================
+    #  API 路由 (API Routes)
+    # ==========================================================
+
+    # 1. 认证相关的 API
+    path('api/register/', register_view, name='api-register'),
+    path('api/login/', login_view, name='api-login'),
+    path('api/logout/', logout_view, name='api-logout'),
+    
+    # 2. 看板数据的 API
+    path('api/dashboard/<str:date_str>/', DashboardView.as_view(), name='api-dashboard'),
+    
+    # 3. 所有由 ViewSet 自动生成的 CRUD API
+    #    这会自动创建如 /api/sleep/, /api/sports/ 等一系列接口
     path('api/', include(router.urls)),
 ]
+
+if settings.DEBUG:
+    # 这一行会自动根据你的 STATICFILES_DIRS 设置来提供服务
+    urlpatterns += staticfiles_urlpatterns()

@@ -340,7 +340,12 @@ BUAA_2025
         "user": { "username": "your_username", "user_id": 1 },
         "data": {
             "date": "2025-07-28",
-            "sleep": { "record_exists": false },
+            "sleep": {
+                    "duration_hours": 6.47,
+                    "sleep_time": "2025-07-28T00:32:00",
+                    "wakeup_time": "2025-07-28T07:10:00",
+                    "record_exists": true
+            },
             "sports": {
                 "total_calories_burned": 250.5,
                 "total_duration_minutes": 30,
