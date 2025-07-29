@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 # 1. 扩展默认用户模型，方便未来添加个人信息
 class CustomUser(AbstractUser):
@@ -35,7 +36,7 @@ class SportRecord(models.Model):
     sport_type = models.CharField(max_length=100, verbose_name="运动类型")
     duration_minutes = models.PositiveIntegerField(verbose_name="运动时长(分钟)")
     calories_burned = models.FloatField(verbose_name="消耗卡路里(大卡)")
-    record_date = models.DateField(auto_now_add=True, verbose_name="记录日期")
+    record_date = models.DateField(default=timezone.now, verbose_name="记录日期")
 
     def __str__(self):
         return f"{self.user.username} 的运动记录 ({self.sport_type})"
@@ -53,7 +54,7 @@ class FoodItem(models.Model):
 class Meal(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='meals')
     meal_type = models.CharField(max_length=20, choices=[('breakfast', '早餐'), ('lunch', '午餐'), ('dinner', '晚餐'), ('snack', '加餐')], verbose_name="餐次类型")
-    record_date = models.DateField(auto_now_add=True, verbose_name="记录日期")
+    record_date = models.DateField(default=timezone.now, verbose_name="记录日期")
 
     # 使用 @property 装饰器，可以像访问字段一样方便地计算一餐的总热量
     @property
@@ -77,7 +78,7 @@ class MealItem(models.Model):
     # 用户输入这份食物的克数
     portion = models.FloatField(verbose_name="份量(克)")
     # 卡路里由系统自动计算，不允许用户填写，因此 blank=True
-    calories_calculated = models.FloatField(verbose_name="计算卡路里(大卡)", blank=True)
+    calories_calculated = models.FloatField(verbose_name="计算卡路里(大卡)", blank=True, null=True)
 
     def save(self, *args, **kwargs):
         # 在保存之前，自动计算热量

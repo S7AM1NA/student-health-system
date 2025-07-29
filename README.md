@@ -86,13 +86,13 @@ BUAA_2025
 
 3. **SportRecord (运动记录)**
 
-| 字段名 (Field)     | 数据类型 (Type)        | 说明             | 备注                           |
-| :----------------- | :--------------------- | :--------------- | :----------------------------- |
-| `user`             | `ForeignKey`           | 所属用户         | 关联到`CustomUser`             |
-| `sport_type`       | `CharField`            | 运动类型         | 例如 "跑步", "游泳"            |
-| `duration_minutes` | `PositiveIntegerField` | 运动时长(分钟)   | 整数                           |
-| `calories_burned`  | `FloatField`           | 消耗卡路里(大卡) |                                |
-| `record_date`      | `DateField`            | 记录日期         | **后端自动生成**，无需前端提供 |
+| 字段名 (Field)     | 数据类型 (Type)        | 说明             | 备注                                       |
+| :----------------- | :--------------------- | :--------------- | :----------------------------------------- |
+| `user`             | `ForeignKey`           | 所属用户         | 关联到`CustomUser`                         |
+| `sport_type`       | `CharField`            | 运动类型         | 例如 "跑步", "游泳"                        |
+| `duration_minutes` | `PositiveIntegerField` | 运动时长(分钟)   | 整数                                       |
+| `calories_burned`  | `FloatField`           | 消耗卡路里(大卡) |                                            |
+| `record_date`      | `DateField`            | 记录日期         | **前端提供**。前端默认为当天，用户可修改。 |
 
 4. **FoodItem (食物库)**
 
@@ -106,12 +106,12 @@ BUAA_2025
 
 - **Meal (餐次)**
 
-| 字段名 (Field)   | 数据类型 (Type) | 说明       | 备注                                    |
-| :--------------- | :-------------- | :--------- | :-------------------------------------- |
-| `user`           | `ForeignKey`    | 所属用户   | 关联到`CustomUser`                      |
-| `meal_type`      | `CharField`     | 餐次类型   | 'breakfast', 'lunch', 'dinner', 'snack' |
-| `record_date`    | `DateField`     | 记录日期   | **后端自动生成**                        |
-| `total_calories` | `property`      | 该餐总热量 | **后端自动计算**                        |
+| 字段名 (Field)   | 数据类型 (Type) | 说明       | 备注                                       |
+| :--------------- | :-------------- | :--------- | :----------------------------------------- |
+| `user`           | `ForeignKey`    | 所属用户   | 关联到`CustomUser`                         |
+| `meal_type`      | `CharField`     | 餐次类型   | 'breakfast', 'lunch', 'dinner', 'snack'    |
+| `record_date`    | `DateField`     | 记录日期   | **前端提供**。前端默认为当天，用户可修改。 |
+| `total_calories` | `property`      | 该餐总热量 | **后端自动计算**                           |
 
 - **MealItem (餐品条目)**
 
@@ -127,6 +127,8 @@ BUAA_2025
 ##  API接口文档
 
 以下是当前可用的后端API接口，主要供前端开发人员使用。所有接口都暂时关闭了CSRF保护，方便直接调用。
+
+**除注册和登录接口外，以下所有API都需要用户处于登录状态才能访问。**
 
 ### 1. 用户注册
 
@@ -186,6 +188,174 @@ BUAA_2025
     {
         "status": "success",
         "message": "已成功注销"
+    }
+    ```
+    
+### **4. 睡眠记录 (Sleep Records)**
+
+*   **Endpoint**: `/api/sleep/`
+*   **核心**: 管理当前登录用户的睡眠记录。
+
+| 操作             | Method        | URL                | 说明                       |
+| :--------------- | :------------ | :----------------- | :------------------------- |
+| **获取列表**     | `GET`         | `/api/sleep/`      | 获取该用户的所有睡眠记录。 |
+| **创建新记录**   | `POST`        | `/api/sleep/`      | 新增一条睡眠记录。         |
+| **获取单条详情** | `GET`         | `/api/sleep/{id}/` | 查看某条具体记录的详情。   |
+| **更新记录**     | `PUT`/`PATCH` | `/api/sleep/{id}/` | 更新某条记录。             |
+| **删除记录**     | `DELETE`      | `/api/sleep/{id}/` | 删除某条记录。             |
+
+*   **创建 (POST) Request Body**:
+    ```json
+    {
+        "sleep_time": "2025-07-29T23:00:00",
+        "wakeup_time": "2025-07-30T07:30:00"
+    }
+    ```
+*   **响应 (GET/POST/PUT/PATCH) Body**:
+    
+    ```json
+    {
+        "id": 1,
+        "sleep_time": "2025-07-29T23:00:00Z",
+        "wakeup_time": "2025-07-30T07:30:00Z",
+        "duration": "08:30:00"
+    }
+    ```
+
+### **5. 运动记录 (Sport Records)**
+
+*   **Endpoint**: `/api/sports/`
+*   **核心**: 管理当前登录用户的运动记录。接口结构与睡眠记录相同。
+
+*   **创建 (POST) Request Body**:
+    ```json
+    {
+        "sport_type": "跑步",
+        "duration_minutes": 30,
+        "calories_burned": 250.5,
+        "record_date": "2025-07-28" // 默认为当天日期，允许用户自行修改。
+    }
+    ```
+*   **响应 Body**:
+    ```json
+    {
+        "id": 1,
+        "sport_type": "跑步",
+        "duration_minutes": 30,
+        "calories_burned": 250.5,
+        "record_date": "2025-07-28"
+    }
+    ```
+
+### **6. 食物库 (Food Items)**
+
+*   **Endpoint**: `/api/foods/`
+*   **核心**: **只读接口**，用于搜索和展示食物库信息。
+
+| 操作             | Method | URL                | 说明                       |
+| :--------------- | :----- | :----------------- | :------------------------- |
+| **获取列表**     | `GET`  | `/api/foods/`      | 获取食物库列表，支持搜索。 |
+| **获取单条详情** | `GET`  | `/api/foods/{id}/` | 查看某个食物的详细信息。   |
+
+*   **响应 Body**:
+    ```json
+    {
+        "id": 101,
+        "name": "苹果",
+        "calories_per_100g": 52.0
+    }
+    ```
+
+### **7. 饮食记录 (Meals & Meal Items)**
+
+#### **7.1 餐次 (Meal)**
+
+*   **Endpoint**: `/api/meals/`
+*   **核心**: 管理一餐的整体信息，如“早餐”、“午餐”。
+
+*   **创建 (POST) Request Body**:
+    ```json
+    {
+        "meal_type": "breakfast", // 'breakfast', 'lunch', 'dinner', 'snack'
+        "record_date": "2025-07-28" // 默认为当天日期，允许用户自行修改。
+    }
+    ```
+*   **获取列表/详情 (GET) 响应 Body**: (注意：会自动嵌套包含的餐品)
+    ```json
+    {
+        "id": 25,
+        "user": 1,
+        "meal_type": "breakfast",
+        "record_date": "2025-07-28",
+        "total_calories": 354.0, // 该餐总热量，自动计算
+        "meal_items": [
+            {
+                "id": 50,
+                "meal": 25,
+                "food_item": 101,
+                "food_item_name": "苹果",
+                "portion": 150.0,
+                "calories_calculated": 78.0
+            }
+        ]
+    }
+    ```
+
+#### **7.2 餐品条目 (MealItem)**
+
+*   **Endpoint**: `/api/meal-items/`
+*   **核心**: 向一个**已存在**的餐次中添加、修改或删除具体的食物条目。
+
+*   **创建 (POST) Request Body**:
+    ```json
+    {
+        "meal": 25, // 必须提供所属餐次的ID
+        "food_item": 102, // 必须提供食物库中食物的ID
+        "portion": 250.0 // 份量（克）
+    }
+    ```
+*   **响应 Body**:
+    ```json
+    {
+        "id": 51,
+        "meal": 25,
+        "food_item": 102,
+        "food_item_name": "牛奶",
+        "portion": 250.0,
+        "calories_calculated": 276.0
+    }
+    ```
+
+### **8. 每日健康看板 (Dashboard)**
+
+*   **URL**: `/api/dashboard/{date_str}/`
+*   **Method**: `GET`
+*   **URL 参数**: `date_str` - 必需。格式为 `YYYY-MM-DD` 的日期字符串。
+*   **核心**: 获取指定日期的综合健康数据看板。
+*   **Success Response (`200 OK`)**:
+    ```json
+    {
+        "status": "success",
+        "message": "2025-07-28 的健康数据获取成功",
+        "user": { "username": "your_username", "user_id": 1 },
+        "data": {
+            "date": "2025-07-28",
+            "sleep": { "record_exists": false },
+            "sports": {
+                "total_calories_burned": 250.5,
+                "total_duration_minutes": 30,
+                "count": 1,
+                "record_exists": true
+            },
+            "diet": {
+                "total_calories_eaten": 2100.0,
+                "record_exists": true
+            },
+            "health_summary": {
+                "suggestion": "今天摄入的热量有点多哦，注意控制饮食！",
+                "status_code": "HIGH_INTAKE"
+            }
+        }
     }
     ```
 ---
