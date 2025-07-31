@@ -5,13 +5,15 @@ from django.views.decorators.csrf import csrf_exempt # 方便开发阶段调试A
 
 from rest_framework import viewsets, permissions # 导入 permissions
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from .models import CustomUser, SleepRecord, SportRecord, FoodItem, Meal, MealItem
 from .serializers import (
     SleepRecordSerializer, 
     SportRecordSerializer, 
     FoodItemSerializer, 
     MealSerializer, 
-    MealItemSerializer
+    MealItemSerializer,
+    UserProfileSerializer
 )
 
 from django.shortcuts import render, redirect
@@ -98,36 +100,69 @@ def logout_view(request):
     return JsonResponse({'status': 'error', 'message': '仅支持POST请求'}, status=405)
 
 class SleepRecordViewSet(viewsets.ModelViewSet):
-    """
-    用于处理睡眠记录的增删改查
-    """
-    queryset = SleepRecord.objects.all()
     serializer_class = SleepRecordSerializer
-    permission_classes = [IsAuthenticated] # 只有登录用户才能访问
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 关键：确保用户只能看到自己的数据
-        return SleepRecord.objects.filter(user=self.request.user)
+        queryset = SleepRecord.objects.filter(user=self.request.user)
+        
+        # 【优化】支持按 record_date 查询参数进行筛选
+        record_date_str = self.request.query_params.get('record_date')
+        if record_date_str:
+            # 对于睡眠记录，我们约定按“起床日期”进行筛选
+            queryset = queryset.filter(wakeup_time__date=record_date_str)
+            
+        return queryset.order_by('-wakeup_time')
 
     def perform_create(self, serializer):
-        # 关键：创建记录时，自动将 user 设置为当前登录用户
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='today-check')
+    def today_check(self, request):
+        """
+        【新增】轻量级接口，检查今天是否已有睡眠记录。
+        访问URL: GET /api/sleep/today-check/
+        """
+        today = timezone.now().date()
+        record = self.get_queryset().filter(wakeup_time__date=today).first()
+        
+        if record:
+            return Response({"record_exists": True, "record_id": record.id})
+        else:
+            return Response({"record_exists": False, "record_id": None})
 
 class SportRecordViewSet(viewsets.ModelViewSet):
-    """
-    用于处理运动记录的增删改查
-    """
-    queryset = SportRecord.objects.all()
     serializer_class = SportRecordSerializer
-    permission_classes = [IsAuthenticated] # 同样，只有登录用户才能操作
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 确保每个用户只能看到和操作自己的运动记录
-        return SportRecord.objects.filter(user=self.request.user)
+        queryset = SportRecord.objects.filter(user=self.request.user)
+        
+        # 【优化】支持按 record_date 查询参数进行筛选
+        record_date_str = self.request.query_params.get('record_date')
+        if record_date_str:
+            queryset = queryset.filter(record_date=record_date_str)
+
+        return queryset.order_by('-record_date')
 
     def perform_create(self, serializer):
-        # 创建时，自动将用户字段设置为当前请求的用户
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='today-check')
+    def today_check(self, request):
+        """
+        【新增】轻量级接口，检查今天是否已有运动记录。
+        访问URL: GET /api/sports/today-check/
+        """
+        today = timezone.now().date()
+        # 运动记录可能有多条，我们只需要判断是否存在即可
+        record = self.get_queryset().filter(record_date=today).first()
+        
+        if record:
+            # 如果一天内有多条运动记录，返回第一条的ID供参考
+            return Response({"record_exists": True, "record_id": record.id})
+        else:
+            return Response({"record_exists": False, "record_id": None})
 
 class FoodItemViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -139,17 +174,36 @@ class FoodItemViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class MealViewSet(viewsets.ModelViewSet):
-    """
-    管理“餐次”的增删改查
-    """
     serializer_class = MealSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Meal.objects.filter(user=self.request.user).prefetch_related('meal_items__food_item')
+        queryset = Meal.objects.filter(user=self.request.user).prefetch_related('meal_items__food_item')
+        
+        # 【优化】支持按 record_date 查询参数进行筛选
+        record_date_str = self.request.query_params.get('record_date')
+        if record_date_str:
+            queryset = queryset.filter(record_date=record_date_str)
+            
+        return queryset.order_by('-record_date')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='today-check')
+    def today_check(self, request):
+        """
+        【新增】轻量级接口，检查今天是否已有任何餐次记录。
+        访问URL: GET /api/meals/today-check/
+        """
+        today = timezone.now().date()
+        record = self.get_queryset().filter(record_date=today).first()
+        
+        if record:
+            # 如果一天内有多餐，返回第一餐的ID供参考
+            return Response({"record_exists": True, "record_id": record.id})
+        else:
+            return Response({"record_exists": False, "record_id": None})
 
 
 class MealItemViewSet(viewsets.ModelViewSet):
@@ -168,9 +222,9 @@ class MealItemViewSet(viewsets.ModelViewSet):
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, time
 from django.db.models import Sum, Count
+from django.utils import timezone
 
 # ... 导入你所有的模型 ...
 from .models import SleepRecord, SportRecord, Meal
@@ -295,3 +349,27 @@ class DashboardView(APIView):
         }
         
         return Response(final_response)
+    
+class ProfileView(APIView):
+    """
+    处理用户个人档案的读取(GET)和更新(PUT)。
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        处理 GET /api/profile/ 请求，返回当前用户档案。
+        """
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data)
+
+    def put(self, request):
+        """
+        处理 PUT /api/profile/ 请求，更新当前用户档案。
+        使用 partial=True 允许部分字段更新，类似PATCH。
+        """
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)

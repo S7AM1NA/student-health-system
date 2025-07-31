@@ -1,6 +1,6 @@
 # core/serializers.py
 from rest_framework import serializers
-from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem
+from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser
 
 class SleepRecordSerializer(serializers.ModelSerializer):
     class Meta:
@@ -49,5 +49,13 @@ class MealSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'meal_type', 'record_date', 'total_calories', 'meal_items']
         read_only_fields = ['id', 'user', 'total_calories', 'meal_items']
 
-
+class UserProfileSerializer(serializers.ModelSerializer):
+    """
+    用于读取和更新用户个人档案。
+    """
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'gender', 'date_of_birth']
+        # 用户名在个人档案更新时不应被修改
+        read_only_fields = ['username']
 

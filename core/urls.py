@@ -14,7 +14,8 @@ from .views import (
     SportRecordViewSet, 
     FoodItemViewSet, 
     MealViewSet, 
-    MealItemViewSet
+    MealItemViewSet,
+    ProfileView
 )
 
 from django.conf import settings
@@ -54,8 +55,9 @@ urlpatterns = [
     path('api/login/', login_view, name='api-login'),
     path('api/logout/', logout_view, name='api-logout'),
     
-    # 2. 看板数据的 API
+    # 2. 看板数据和个人档案的 API
     path('api/dashboard/<str:date_str>/', DashboardView.as_view(), name='api-dashboard'),
+    path('api/profile/', ProfileView.as_view(), name='api-profile'),
     
     # 3. 所有由 ViewSet 自动生成的 CRUD API
     #    这会自动创建如 /api/sleep/, /api/sports/ 等一系列接口
