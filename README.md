@@ -4,12 +4,14 @@ BUAA_2025
 
 ## 项目当前进度
 
-**阶段一部分完成**。项目的基础架构已经搭建完毕。
+**必做项目大部分完成**。项目的基础架构已经搭建完毕。
 
 *   ✅ **项目初始化**: 已创建Django项目及核心`core`应用。
 *   ✅ **数据库模型**: 已定义 `CustomUser`, `SleepRecord`, `SportRecord`, `FoodItem`, `Meal`, `MealItem` 模型并完成首次数据库迁移。
 *   ✅ **版本控制**: 项目已初始化为Git仓库，并与远程GitHub仓库关联。
 *   ✅ **基础用户API**: 已完成用户**注册、登录、注销**的后端API接口，可供前端调用。
+*   ✅ **健康记录API**: 已完成用户增删改查**睡眠、运动、饮食**的后端API接口，可供前端调用。
+*   ✅ **前端基本骨架**: 前端已完成开发目录、页脚、主看板以及各个健康信息的页面。并已与后端API对接。
 
 ## 技术栈
 
@@ -57,8 +59,14 @@ BUAA_2025
     ```
     现在，你可以通过浏览器访问 `http://127.0.0.1:8000/` 来查看项目了。
 
-6.  **访问本地管理员账号**
-    可访问 `http://127.0.0.1:8000/admin/` 后台管理界面查看和管理数据。管理员账号密码均为 `BUAA`。
+6.  **创建本地管理员账号**
+    
+    ```
+    python manage.py createsuperuser
+    ```
+    
+    
+    现在，可以访问 `http://127.0.0.1:8000/admin/` 后台管理界面查看和管理数据。
 ---
 
 ## 数据库模型
@@ -191,20 +199,56 @@ BUAA_2025
     }
     ```
     
-### **4. 睡眠记录 (Sleep Records)**
+### **4. 用户个人档案 (Profile)**
+
+*   **Endpoint**: `/api/profile/`
+*   **核心**: 管理当前登录用户的个人详细信息。
+
+| 操作             | Method | URL             | 说明                     |
+| :--------------- | :----- | :-------------- | :----------------------- |
+| **获取个人档案** | `GET`  | `/api/profile/` | 获取当前用户的详细档案。 |
+| **更新个人档案** | `PUT`  | `/api/profile/` | 更新当前用户的档案信息。 |
+
+* **更新 (PUT) Request Body**: (只需提供需要修改的字段)
+
+  ```json
+  {
+      "email": "new_email@example.com",
+      "gender": "F",
+      "date_of_birth": "2001-05-20"
+  }
+  ```
+
+* **响应 (GET/PUT) Body**:
+
+  ```json
+  {
+      "username": "your_username",
+      "email": "new_email@example.com",
+      "gender": "F",
+      "date_of_birth": "2001-05-20"
+  }
+  ```
+
+### **5. 睡眠记录 (Sleep Records)**
 
 *   **Endpoint**: `/api/sleep/`
 *   **核心**: 管理当前登录用户的睡眠记录。
 
-| 操作             | Method        | URL                | 说明                       |
-| :--------------- | :------------ | :----------------- | :------------------------- |
-| **获取列表**     | `GET`         | `/api/sleep/`      | 获取该用户的所有睡眠记录。 |
-| **创建新记录**   | `POST`        | `/api/sleep/`      | 新增一条睡眠记录。         |
-| **获取单条详情** | `GET`         | `/api/sleep/{id}/` | 查看某条具体记录的详情。   |
-| **更新记录**     | `PUT`/`PATCH` | `/api/sleep/{id}/` | 更新某条记录。             |
-| **删除记录**     | `DELETE`      | `/api/sleep/{id}/` | 删除某条记录。             |
+| 操作             | Method        | URL                       | 说明                               |
+| :--------------- | :------------ | :------------------------ | :--------------------------------- |
+| **获取列表**     | `GET`         | `/api/sleep/`             | 获取该用户的所有睡眠记录。         |
+| **检查今日记录** | `GET`         | `/api/sleep/today-check/` | 轻量级接口，检查今天是否已有记录。 |
+| **创建新记录**   | `POST`        | `/api/sleep/`             | 新增一条睡眠记录。                 |
+| **获取单条详情** | `GET`         | `/api/sleep/{id}/`        | 查看某条具体记录的详情。           |
+| **更新记录**     | `PUT`/`PATCH` | `/api/sleep/{id}/`        | 更新某条记录。                     |
+| **删除记录**     | `DELETE`      | `/api/sleep/{id}/`        | 删除某条记录。                     |
 
+*   **筛选功能**:
+    
+    *   此列表接口支持按**起床日期**筛选: `GET /api/sleep/?record_date=2025-07-31`
 *   **创建 (POST) Request Body**:
+    
     ```json
     {
         "sleep_time": "2025-07-29T23:00:00",
@@ -222,32 +266,54 @@ BUAA_2025
     }
     ```
 
-### **5. 运动记录 (Sport Records)**
+### **6. 运动记录 (Sport Records)**
 
 *   **Endpoint**: `/api/sports/`
-*   **核心**: 管理当前登录用户的运动记录。接口结构与睡眠记录相同。
+*   **核心**: 管理用户的运动记录。接口结构与睡眠记录相同。
 
-*   **创建 (POST) Request Body**:
-    ```json
-    {
-        "sport_type": "跑步",
-        "duration_minutes": 30,
-        "calories_burned": 250.5,
-        "record_date": "2025-07-28" // 默认为当天日期，允许用户自行修改。
-    }
-    ```
-*   **响应 Body**:
-    ```json
-    {
-        "id": 1,
-        "sport_type": "跑步",
-        "duration_minutes": 30,
-        "calories_burned": 250.5,
-        "record_date": "2025-07-28"
-    }
-    ```
+| 操作             | Method        | URL                        | 说明                       |
+| :--------------- | :------------ | :------------------------- | :------------------------- |
+| **获取列表**     | `GET`         | `/api/sports/`             | 获取该用户的所有运动记录。 |
+| **检查今日记录** | `GET`         | `/api/sports/today-check/` | 检查今天是否已有运动记录。 |
+| **创建新记录**   | `POST`        | `/api/sports/`             | 新增一条运动记录。         |
+| **获取单条详情** | `GET`         | `/api/sports/{id}/`        | 查看某条具体记录的详情。   |
+| **更新记录**     | `PUT`/`PATCH` | `/api/sports/{id}/`        | 更新某条记录。             |
+| **删除记录**     | `DELETE`      | `/api/sports/{id}/`        | 删除某条记录。             |
 
-### **6. 食物库 (Food Items)**
+* **筛选功能**:
+
+  *   此列表接口支持按**记录日期**筛选: `GET /api/sports/?record_date=2025-07-31`
+
+* **检查今日记录 (GET `/today-check/`) 响应**:
+
+  ```json
+  { "record_exists": true, "record_id": 45 }
+  ```
+
+* **创建 (POST) Request Body**:
+
+  ```json
+  {
+      "sport_type": "跑步",
+      "duration_minutes": 30,
+      "calories_burned": 250.5,
+      "record_date": "2025-07-28"
+  }
+  ```
+
+* **响应 Body**:
+
+  ```json
+  {
+      "id": 1,
+      "sport_type": "跑步",
+      "duration_minutes": 30,
+      "calories_burned": 250.5,
+      "record_date": "2025-07-28"
+  }
+  ```
+
+### **7. 食物库 (Food Items)**
 
 *   **Endpoint**: `/api/foods/`
 *   **核心**: **只读接口**，用于搜索和展示食物库信息。
@@ -266,42 +332,82 @@ BUAA_2025
     }
     ```
 
-### **7. 饮食记录 (Meals & Meal Items)**
+### **8. 饮食记录 (Meals & Meal Items)**
 
-#### **7.1 餐次 (Meal)**
+#### **8.1 餐次 (Meal)**
 
 *   **Endpoint**: `/api/meals/`
 *   **核心**: 管理一餐的整体信息，如“早餐”、“午餐”。
 
-*   **创建 (POST) Request Body**:
-    ```json
-    {
-        "meal_type": "breakfast", // 'breakfast', 'lunch', 'dinner', 'snack'
-        "record_date": "2025-07-28" // 默认为当天日期，允许用户自行修改。
-    }
+| 操作             | Method | URL                       | 说明                                       |
+| :--------------- | :----- | :------------------------ | :----------------------------------------- |
+| **获取列表**     | `GET`  | `/api/meals/`             | 获取该用户的所有餐次记录。                 |
+| **检查今日记录** | `GET`  | `/api/meals/today-check/` | 检查今天是否已有任何餐次记录。             |
+| **创建新记录**   | `POST` | `/api/meals/`             | 新增一条餐次记录。                         |
+| ...              | ...    | `/api/meals/{id}/`        | 其他 `GET`/`PUT`/`DELETE` 操作与之前相同。 |
+
+* **筛选功能**:
+
+  此列表接口支持通过 URL 查询参数进行灵活的筛选：
+
+  * **按记录日期 (`record_date`) 筛选**，获取指定日期的所有餐次记录：
+
     ```
-*   **获取列表/详情 (GET) 响应 Body**: (注意：会自动嵌套包含的餐品)
-    ```json
-    {
-        "id": 25,
-        "user": 1,
-        "meal_type": "breakfast",
-        "record_date": "2025-07-28",
-        "total_calories": 354.0, // 该餐总热量，自动计算
-        "meal_items": [
-            {
-                "id": 50,
-                "meal": 25,
-                "food_item": 101,
-                "food_item_name": "苹果",
-                "portion": 150.0,
-                "calories_calculated": 78.0
-            }
-        ]
-    }
+    GET /api/meals/?record_date=2025-07-31
     ```
 
-#### **7.2 餐品条目 (MealItem)**
+  * **按餐次类型 (`meal_type`) 筛选**，获取所有指定类型的餐次记录（例如，所有午餐）：
+
+    ```
+    GET /api/meals/?meal_type=lunch
+    ```
+
+  * **组合筛选**，同时按日期和餐次类型进行精确查找：
+
+    ```
+    GET /api/meals/?record_date=2025-07-31&meal_type=lunch
+    ```
+
+  
+
+* **检查今日记录 (GET `/today-check/`) 响应**:
+
+  ```json
+  { "record_exists": true, "record_id": 25 }
+  ```
+
+* **创建 (POST) Request Body**:
+
+  ```json
+  {
+      "meal_type": "breakfast", // 'breakfast', 'lunch', 'dinner', 'snack'
+      "record_date": "2025-07-28"
+  }
+  ```
+
+* **获取列表/详情 (GET) 响应 Body**:
+
+  ```json
+  {
+      "id": 25,
+      "user": 1,
+      "meal_type": "breakfast",
+      "record_date": "2025-07-28",
+      "total_calories": 354.0,
+      "meal_items": [
+          {
+              "id": 50,
+              "meal": 25,
+              "food_item": 101,
+              "food_item_name": "苹果",
+              "portion": 150.0,
+              "calories_calculated": 78.0
+          }
+      ]
+  }
+  ```
+
+#### **8.2 餐品条目 (MealItem)**
 
 *   **Endpoint**: `/api/meal-items/`
 *   **核心**: 向一个**已存在**的餐次中添加、修改或删除具体的食物条目。
@@ -326,7 +432,7 @@ BUAA_2025
     }
     ```
 
-### **8. 每日健康看板 (Dashboard)**
+### **9. 每日健康看板 (Dashboard)**
 
 *   **URL**: `/api/dashboard/{date_str}/`
 *   **Method**: `GET`
@@ -363,32 +469,200 @@ BUAA_2025
         }
     }
     ```
+    
+    ### **10. 周度睡眠数据报告 (Weekly Sleep Report)**
+    
+    *   **URL**: `/api/reports/weekly-sleep/{end_date_str}/`
+    *   **Method**: `GET`
+    *   **Authentication**: 需要 (Authentication Required)
+    *   **URL 参数**:
+        *   `end_date_str` - **必需**。报告周期的结束日期，格式为 `YYYY-MM-DD`。API将返回此日期（含）及之前6天，共7天的数据。
+    *   **核心功能**: 获取一个连续7天的睡眠时长列表，主要用于前端渲染可视化图表，如柱状图。此API经过时区优化，能可靠地处理跨天记录。
+    *   **Success Response (`200 OK`)**:
+        ```json
+        {
+            "status": "success",
+            "message": "获取 2023-10-21 到 2023-10-27 的睡眠数据成功",
+            "data": [
+                {
+                    "date": "2023-10-21",
+                    "duration_hours": 0
+                },
+                {
+                    "date": "2023-10-22",
+                    "duration_hours": 7.5
+                },
+                {
+                    "date": "2023-10-23",
+                    "duration_hours": 8.1
+                },
+                {
+                    "date": "2023-10-24",
+                    "duration_hours": 6.8
+                },
+                {
+                    "date": "2023-10-25",
+                    "duration_hours": 0
+                },
+                {
+                    "date": "2023-10-26",
+                    "duration_hours": 7.2
+                },
+                {
+                    "date": "2023-10-27",
+                    "duration_hours": 7.9
+                }
+            ]
+        }
+        ```
+    *   **字段说明**:
+        *   `data`: 一个包含7个对象的数组，代表从 `end_date_str` 倒推的连续7天。
+        *   `data.date`: 日期字符串 (`YYYY-MM-DD`)。
+        *   `data.duration_hours`: 该日的睡眠时长（单位：小时）。**如果当天没有记录，则为 `0`**，确保前端可以稳定渲染。
+    *   **Error Response (`400 Bad Request`)**:
+        ```json
+        {
+            "status": "error",
+            "message": "日期格式错误，请使用 YYYY-MM-DD"
+        }
+        ```
+        *   当 `end_date_str` 格式不正确时返回。
+    
+    ### **11. 周期性综合健康报告 (Periodic Health Report)**
+    
+    *   **URL**: `/api/reports/health-summary/`
+    *   **Method**: `GET`
+    *   **Authentication**: 需要 (Authentication Required)
+    *   **URL 参数**: 无
+    *   **Query Parameters**:
+        *   `start_date` - **必需**。报告周期的开始日期，格式为 `YYYY-MM-DD`。
+        *   `end_date` - **必需**。报告周期的结束日期，格式为 `YYYY-MM-DD`。
+    *   **核心功能**: 生成一个指定时间周期内的、高度详细的健康分析报告。报告会对睡眠、运动、饮食三个维度进行独立评分和深度分析，并最终给出一个综合评分、热量平衡分析和智能化的优先改进建议。
+    *   **Success Response (`200 OK`)**:
+        ```json
+        {
+            "status": "success",
+            "report": {
+                "period": {
+                    "start_date": "2023-10-20",
+                    "end_date": "2023-10-26",
+                    "total_days": 7
+                },
+                "overall_summary": {
+                    "title": "基本均衡，但有提升空间",
+                    "overall_score": 72,
+                    "calorie_balance": {
+                        "average_intake": 2057,
+                        "average_activity_burn": 250,
+                        "estimated_bmr": 1800,
+                        "net_calories": 7,
+                        "comment": "热量基本平衡"
+                    },
+                    "priority_suggestions": [
+                        "本周期您需要在“饮食”方面投入更多关注。",
+                        "日均热量摄入 2057 大卡，可能偏高。请关注高热量食物的摄入。",
+                        "晚餐热量占比较高，建议将更多热量分配到早餐和午餐。"
+                    ]
+                },
+                "sleep_analysis": {
+                    "score": 82,
+                    "suggestions": [ "...", "..." ],
+                    "record_count": 7,
+                    "average_duration_hours": 7.6,
+                    "consistency": {
+                        "sleep_time_std_dev_minutes": 55,
+                        "wakeup_time_std_dev_minutes": 48,
+                        "comment": "作息规律性一般"
+                    },
+                    "extremes": {
+                        "shortest_sleep_hours": 6.5,
+                        "longest_sleep_hours": 8.9
+                    },
+                    "data_coverage_percent": 100
+                },
+                "sports_analysis": {
+                    "score": 70,
+                    "suggestions": [ "..." ],
+                    "record_count": 4,
+                    "total_duration_minutes": 120,
+                    "total_calories_burned": 1750,
+                    "frequency_per_week": 4.0,
+                    "most_frequent_activity": "跑步",
+                    "data_coverage_percent": 57
+                },
+                "diet_analysis": {
+                    "score": 60,
+                    "suggestions": [ "...", "..." ],
+                    "average_daily_calories": 2057,
+                    "calorie_distribution": {
+                        "breakfast": 3500,
+                        "lunch": 5200,
+                        "dinner": 5700,
+                        "snack": 0
+                    },
+                    "data_coverage_percent": 100
+                }
+            }
+        }
+        ```
+    *   **字段说明**:
+        *   `report.period`: 报告覆盖的周期信息。
+            *   `total_days`: 周期内的总天数。
+        *   `report.overall_summary`: 报告的整体摘要。
+            *   `title`: 基于总分的报告标题，如 "优秀！健康生活方式的典范"。
+            *   `overall_score`: 综合健康得分 (0-100)，由各分项加权计算。
+            *   `calorie_balance`: 热量平衡分析。
+                *   `average_intake`: 周期内日均摄入热量 (大卡)。
+                *   `average_activity_burn`: 周期内日均运动消耗热量 (大卡)。
+                *   `estimated_bmr`: 估算的基础代谢率 (大卡)。
+                *   `net_calories`: 净热量差值 (`摄入 - 运动消耗 - 基础代谢`)。
+                *   `comment`: 基于 `net_calories` 的一个简短评价，如 "热量盈余" 或 "热量亏损"。
+            *   `priority_suggestions`: 一个建议数组，**优先展示得分最低维度的建议**，帮助用户聚焦核心问题。
+        *   `report.sleep_analysis`: 睡眠维度的详细分析。
+            *   `score`: 睡眠健康得分 (0-100)。
+            *   `suggestions`: 针对睡眠的建议列表。
+            *   `record_count`: 周期内睡眠记录的总条数。
+            *   `average_duration_hours`: 平均睡眠时长 (小时)。
+            *   `consistency`: 睡眠规律性分析。
+                *   `sleep_time_std_dev_minutes`: 入睡时间的标准差 (分钟)，值越小越规律。
+                *   `wakeup_time_std_dev_minutes`: 起床时间的标准差 (分钟)。
+                *   `comment`: 基于标准差的规律性评价，如 "作息非常规律"。
+            *   `extremes`: 极值数据。
+                *   `shortest_sleep_hours`: 最短一次睡眠的时长。
+                *   `longest_sleep_hours`: 最长一次睡眠的时长。
+            *   `data_coverage_percent`: 数据记录覆盖率，即有睡眠记录的天数占总天数的百分比。
+        *   `report.sports_analysis`: 运动维度的详细分析。
+            *   `score`: 运动健康得分 (0-100)。
+            *   `total_duration_minutes`: 周期内总运动时长 (分钟)。
+            *   `total_calories_burned`: 周期内总消耗热量 (大卡)。
+            *   `frequency_per_week`: 每周等效运动次数。
+            *   `most_frequent_activity`: 周期内最常进行的运动类型。
+        *   `report.diet_analysis`: 饮食维度的详细分析。
+            *   `score`: 饮食健康得分 (0-100)。
+            *   `average_daily_calories`: 日均摄入热量 (大卡)。
+            *   `calorie_distribution`: 周期内总热量的餐次分布情况 (大卡)。
+    *   **Error Responses (`400 Bad Request`)**:
+        *   当 `start_date` 或 `end_date` 缺失时:
+            ```json
+            { "status": "error", "message": "必须提供 start_date 和 end_date 查询参数" }
+            ```
+        *   当日期格式不正确时:
+            ```json
+            { "status": "error", "message": "日期格式错误，请使用 YYYY-MM-DD" }
+            ```
+        *   当 `start_date` 在 `end_date` 之后时:
+            ```json
+            { "status": "error", "message": "开始日期不能晚于结束日期" }
+            ```
 ---
 
-## 当前（第一、二阶段）开发任务
+## 当前（必做阶段）开发任务
 
-#### **成员B (后端核心)**
-**目标**: 编写三大模块的数据增删改查(CRUD) API接口。
+**前端：**
 
-*   **任务1**: 实现睡眠记录API (`/api/sleep/`)
-*   **任务2**: 实现运动记录API (`/api/sport/`)
-*   **任务3**: 实现饮食记录相关API (`/api/fooditems/`, `/api/meals/`, `/api/meal-items/`)
-*   **任务4**: 通过Django Admin后台录入一批常见的食物及其热量数据。
+1.  在“睡眠”页面，调用后端的图表数据API，使用Chart.is绘制一个漂亮的周度睡眠时长折线图或柱状图。
+2. 创建一个新的“健康报告"页面，调用报告API，展示一周数据汇总，并将后端生成的文本报告美化后展示出来。
 
-#### **成员C (前端组长)**
-**目标**: 搭建网页骨架并对接后端API，让用户可以提交数据。
-
-*   **任务1**: 搭建基础HTML模板和静态页面布局。
-*   **任务2**: 将静态的注册、登录页面与后端API对接。
-*   **任务3**: 创建三大模块的数据录入表单并与后端API对接。
-
-#### **成员D (前端核心)**
-**目标**: 开发主看板，为用户提供直观的数据概览。
-
-*   **任务**: **开发系统主看板 (Dashboard)**。调用后端API获取并展示用户**当日**的健康数据概览（如今日睡眠时长、运动消耗、饮食摄入总热量等）。
-
-#### **成员A (后端组长)**
-*   **任务**: 协助 **成员B** 进行API的开发与调试，确保接口的稳定性和正确性，为前端提供支持。
 ---
 
 ## 协作规范

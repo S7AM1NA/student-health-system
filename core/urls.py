@@ -19,7 +19,9 @@ from .views import (
     FoodItemViewSet, 
     MealViewSet, 
     MealItemViewSet,
-    ProfileView
+    ProfileView,
+    WeeklySleepReportView,
+    HealthReportView,
 )
 
 from django.conf import settings
@@ -67,6 +69,13 @@ urlpatterns = [
     path('api/dashboard/<str:date_str>/', DashboardView.as_view(), name='api-dashboard'),
     path('api/profile/', ProfileView.as_view(), name='api-profile'),
     
+    # 功能1：周度睡眠报告 API
+    # URL 示例: /api/reports/weekly-sleep/2023-10-27/
+    path('api/reports/weekly-sleep/<str:end_date_str>/', WeeklySleepReportView.as_view(), name='weekly-sleep-report'),
+    # 功能2：周期性健康报告 API
+    # URL 示例: /api/reports/health-summary/?start_date=2023-10-01&end_date=2023-10-27
+    path('api/reports/health-summary/', HealthReportView.as_view(), name='health-report'),
+
     # 3. 所有由 ViewSet 自动生成的 CRUD API
     #    这会自动创建如 /api/sleep/, /api/sports/ 等一系列接口
     path('api/', include(router.urls)),
