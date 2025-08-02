@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}饮食记录 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="mb-4">
+        <h1 class="h3">今日饮食记录</h1>
+        <p class="text-muted">今天你摄入了 <strong class="text-danger" id="total-calories-eaten-display">0</strong> 大卡</p>
+    </header>
+
+    <div class="row g-5">
+        <!-- 左侧：添加饮食记录表单 -->
+        <div class="col-md-4">
+            <h4>记录一餐</h4>
+            <div class="card">
+                <div class="card-body">
+                    <form id="diet-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="meal-type" class="form-label">餐次类型</label>
+                            <select class="form-select" id="meal-type" required>
+                                <option value="breakfast">早餐</option>
+                                <option value="lunch">午餐</option>
+                                <option value="dinner">晚餐</option>
+                                <option value="snack">加餐/零食</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="food-item" class="form-label">食物名称</label>
+                            <input type="text" class="form-control" id="food-item" list="food-datalist" placeholder="输入并选择食物" required>
+                            <!-- JS会动态获取食物库数据填充到这里 -->
+                            <datalist id="food-datalist">
+                                <!-- <option value="苹果"></option> -->
+                                <!-- <option value="鸡胸肉"></option> -->
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label for="portion" class="form-label">份量 (克)</label>
+                            <input type="number" class="form-control" id="portion" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">添加食物</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：今日饮食详情 -->
+        <div class="col-md-8">
+            <h4>饮食详情</h4>
+            <div id="diet-details-container">
+                <!-- JS会在这里动态填充饮食记录详情，比如用卡片展示每一餐 -->
+                <p class="text-center text-muted">暂无饮食记录</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <div class="modal fade" id="editMealItemModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">修改食物份量</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-meal-item-form">
+                        <!-- 这个隐藏的input用来存储正在修改的item的ID -->
+                        <input type="hidden" id="edit-item-id">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">食物名称</label>
+                            <input type="text" class="form-control" id="edit-food-name" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-portion" class="form-label">新的份量 (克)</label>
+                            <input type="number" class="form-control" id="edit-portion" min="1" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" form="edit-meal-item-form" class="btn btn-primary">保存更改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{% static 'js/diet.js' %}"></script>
+{% endblock %}

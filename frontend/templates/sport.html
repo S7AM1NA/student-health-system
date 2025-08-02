@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}运动记录 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="mb-4">
+        <h1 class="h3">今日运动记录</h1>
+        <p class="text-muted">今天你消耗了 <strong class="text-success" id="total-calories-display">0</strong> 大卡</p>
+    </header>
+
+    <div class="row g-5">
+        <!-- 左侧：添加运动记录表单 -->
+        <div class="col-md-4">
+            <h4>添加新运动</h4>
+            <div class="card">
+                <div class="card-body">
+                    <form id="sport-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="sport-type" class="form-label">运动类型</label>
+                            <input type="text" class="form-control" id="sport-type" placeholder="例如：跑步、游泳" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="duration" class="form-label">运动时长 (分钟)</label>
+                            <input type="number" class="form-control" id="duration" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="calories" class="form-label">消耗卡路里 (大卡)</label>
+                            <input type="number" step="0.1" class="form-control" id="calories" min="0" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">添加记录</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：今日运动列表 -->
+        <div class="col-md-8">
+            <h4>记录列表</h4>
+            <ul class="list-group" id="sport-list">
+                <!-- JS会在这里动态填充运动记录 -->
+                <li class="list-group-item text-center text-muted">暂无运动记录</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'js/sport.js' %}"></script>
+{% endblock %}

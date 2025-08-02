@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}个人档案 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 700px;">
+    <h1 class="mb-4">个人档案</h1>
+    <div class="card">
+        <div class="card-body">
+            <form id="profile-form">
+                {% csrf_token %}
+
+                <div class="mb-3 row">
+                    <label class="col-sm-3 col-form-label">用户名</label>
+                    <div class="col-sm-9">
+                        <input type="text" readonly class="form-control-plaintext" value="{{ user.username }}">
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="email" class="col-sm-3 col-form-label">邮箱</label>
+                    <div class="col-sm-9">
+                        <input type="email" class="form-control" id="email" value="{{ user.email }}">
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="gender" class="col-sm-3 col-form-label">性别</label>
+                    <div class="col-sm-9">
+                        <select class="form-select" id="gender">
+                            <option value="">未设置</option>
+                            <option value="M" {% if user.gender == 'M' %}selected{% endif %}>男</option>
+                            <option value="F" {% if user.gender == 'F' %}selected{% endif %}>女</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="date_of_birth" class="col-sm-3 col-form-label">出生日期</label>
+                    <div class="col-sm-9">
+                        <input type="date" class="form-control" id="date_of_birth" value="{{ user.date_of_birth|date:'Y-m-d' }}">
+                    </div>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">更新档案</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    {# 未来在这里添加 profile.js 来处理表单提交 #}
+    <script src="{% static 'js/profile.js' %}"></script>
+{% endblock %}

@@ -1,52 +1,11 @@
 // 使用 'DOMContentLoaded' 事件确保在HTML完全加载后再执行我们的JS代码
 document.addEventListener('DOMContentLoaded', function () {
-    // ===================================================================
-    // ✨ 新增：昼夜模式切换逻辑 ✨
-    // ===================================================================
-    const themeSwitchButton = document.getElementById('theme-switch');
-    const body = document.body;
-
-    // 函数：应用主题
-    const applyTheme = (theme) => {
-        if (theme === 'dark') {
-            body.classList.add('dark-mode');
-        } else {
-            body.classList.remove('dark-mode');
-        }
-    };
-
-    // 函数：切换主题
-    const toggleTheme = () => {
-        // 判断当前是否是暗黑模式
-        const currentThemeIsDark = body.classList.contains('dark-mode');
-        const newTheme = currentThemeIsDark ? 'light' : 'dark';
-
-        // 应用新主题
-        applyTheme(newTheme);
-
-        // 将用户的选择保存到localStorage，以便下次访问时记住
-        localStorage.setItem('theme', newTheme);
-    };
-
-    // 按钮点击事件
-    themeSwitchButton.addEventListener('click', toggleTheme);
-
-    // 页面加载时，检查localStorage里是否保存了用户之前的选择
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-        // 如果有保存的设置，则应用它
-        applyTheme(savedTheme);
-    } else {
-        // 如果没有保存的设置，可以默认跟随系统设置 (可选)
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        applyTheme(prefersDark ? 'dark' : 'light');
-    }
-
 
     // ===================================================================
-    // 1. 定义常量 (我们的“地址簿”)
+    // 1. 定义常量
     // ===================================================================
     const API_BASE_URL = 'http://127.0.0.1:8000/api'; // 后端服务器的地址
+    const dateSelector = document.getElementById('date-selector');
 
     // 获取当前日期并格式化为 YYYY-MM-DD
     const today = new Date();
@@ -192,48 +151,91 @@ document.addEventListener('DOMContentLoaded', function () {
     // ===================================================================
     // 4. 定义主函数来发起API请求 (我们的“快递员”)
     // ===================================================================
-    async function fetchDashboardData() {
-        try {
-            // `credentials: 'include'` 是关键，它告诉浏览器在发送请求时
-            // 要自动带上 http-only cookies (比如我们的 sessionid)
-            const response = await fetch(DASHBOARD_API_URL, { credentials: 'include' });
+    async function fetchDashboardData(dateStr) {
+        // 1. 使用传入的日期字符串来构建API URL
+        const DASHBOARD_API_URL = `${API_BASE_URL}/dashboard/${dateStr}/`;
+        
+        // 2. 显示一个加载中的状态
+        document.body.style.cursor = 'wait';
+        // 你可以更进一步，比如让卡片内容暂时模糊或显示一个加载动画
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => card.style.opacity = '0.5');
 
+
+        try {
+            // 3. 发起API请求，保留了 credentials: 'include'
+            const response = await fetch(DASHBOARD_API_URL, { credentials: 'include' });
             const data = await response.json();
 
-            // 检查HTTP状态码。如果是401或403，意味着未授权
+            // 4. 检查HTTP状态码
             if (response.status === 401 || response.status === 403) {
-                // 将后端返回的错误信息（如 "Authentication credentials..."）传递给UI更新函数
-                // 这样 updateDashboardUI 里的逻辑就能处理跳转了
                 updateDashboardUI({
                     status: 'error',
-                    message: data.detail || '您需要登录才能访问此页面。'
+                    message: data.detail || '您需要登录才能访问此页面。',
+                    error_code: 'AUTH_REQUIRED' // 明确错误类型
                 });
-                return; // 提前结束函数
+            } else if (!response.ok) {
+                // 5. 处理其他HTTP错误
+                throw new Error(`HTTP错误! 状态码: ${response.status}, 消息: ${data.message || '未知服务器错误'}`);
+            } else {
+                // 6. 如果一切正常，调用UI更新函数
+                updateDashboardUI(data);
             }
-
-            if (!response.ok) {
-                // 处理其他类型的HTTP错误 (如 500 服务器内部错误)
-                throw new Error(`HTTP错误! 状态码: ${response.status}, 消息: ${data.message || '未知错误'}`);
-            }
-
-            // 如果一切正常，调用UI更新函数
-            updateDashboardUI(data);
 
         } catch (error) {
             console.error('无法从服务器获取数据:', error);
-            // 这里可以显示一个更友好的全屏错误消息
-            document.body.innerHTML = `<div class="container mt-5"><div class="alert alert-danger" role="alert">
-                <h4 class="alert-heading">加载失败!</h4>
-                <p>无法连接到健康数据服务器。请检查您的网络连接，并确认后端服务正在运行。</p>
-                <hr>
-                <p class="mb-0">您可以尝试 <a href="#" onclick="location.reload();">刷新页面</a> 重试。</p>
-              </div></div>`;
+
+            // 7. catch块错误处理
+            const mainContent = document.querySelector('main');
+            if (mainContent) {
+                const summarySection = document.getElementById('health-summary');
+                if(summarySection) {
+                    summarySection.className = 'mt-4 alert alert-danger';
+                    summarySection.innerHTML = `<h4 class="alert-heading">加载失败!</h4><p>${error.message}</p><p class="mb-0">请检查网络或稍后 <a href="#" onclick="event.preventDefault(); location.reload();">刷新页面</a> 重试。</p>`;
+                } else {
+                    mainContent.innerHTML = `<div class="alert alert-danger">...</div>`;
+                }
+            } else {
+                alert(`加载失败: ${error.message}`);
+            }
+        } finally {
+            // 8. 无论成功还是失败，都取消加载中状态
+            document.body.style.cursor = 'default';
+            cards.forEach(card => card.style.opacity = '1');
         }
     }
 
+    function initializeDashboard() {
+        // 1. 创建一个函数来获取并格式化日期
+        const getFormattedDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const today = new Date();
+        const todayStr = getFormattedDate(today);
+
+        // 2. 页面加载时，设置日期选择器的默认值为今天
+        dateSelector.value = todayStr;
+
+        // 3. 首次加载页面时，获取今天的数据
+        fetchDashboardData(todayStr);
+
+        // 4. 监听日期选择器的 'change' 事件
+        dateSelector.addEventListener('change', function() {
+            // 当用户选择了新的日期
+            const selectedDate = this.value;
+            if (selectedDate) {
+                // 使用新选择的日期去获取数据
+                fetchDashboardData(selectedDate);
+            }
+        });
+    }
 
     // ===================================================================
     // 5. 启动引擎！
     // ===================================================================
-    fetchDashboardData();
+    initializeDashboard();
 });

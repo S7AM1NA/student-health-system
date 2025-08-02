@@ -1,0 +1,92 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN" data-bs-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{% static 'css/global.css' %}">
+    {% block extra_css %}{% endblock %}
+    <title>{% block title %}学生健康系统{% endblock %}</title>
+</head>
+<body>
+    <button id="theme-switch" class="theme-switch-button" aria-label="切换昼夜模式"></button>
+    <!-- ================= 导航栏 (Navbar) ================= -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+        <div class="container">
+            <!-- 1. 网站Logo和名称 (标题) -->
+            <a class="navbar-brand fw-bold" href="{% url 'dashboard' %}">
+                <img src="{% static 'images/logo.svg' %}" alt="Logo" width="30" height="24" class="d-inline-block align-text-top">
+                健康管理系统
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-nav" aria-controls="main-nav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- 2. 左侧核心导航链接  -->
+            <div class="collapse navbar-collapse" id="main-nav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    
+                    {# ✨ 导航项高亮逻辑说明 ✨ #}
+                    {# 我们通过 request.resolver_match.url_name 来获取当前页面的URL名称 #}
+                    {# 然后和每个链接的目标名称比较，如果相同，就给它加上 'active' 这个CSS类 #}
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">主看板</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'sleep_page' %}active{% endif %}" href="{% url 'sleep_page' %}">睡眠</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'sport_page' %}active{% endif %}" href="{% url 'sport_page' %}">运动</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'diet_page' %}active{% endif %}" href="{% url 'diet_page' %}">饮食</a>
+                    </li>
+                </ul>
+                
+                <!-- 3. 右侧用户菜单 (保持不变) -->
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'profile' %}">个人档案</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" id="logout-link" href="#">注销</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">登录</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="btn btn-primary btn-sm" href="#" role="button">注册</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ================= 主要内容区域 (Main Content) ================= -->
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ================= 页脚 (Footer) ================= -->
+    <footer class="py-3 my-4 border-top text-center">
+        <p class="mb-0 text-muted">© 2024 BUAA_2025. All Rights Reserved.</p>
+    </footer>
+
+    <!-- ================= 全局核心JS ================= -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/global.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>

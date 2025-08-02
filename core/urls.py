@@ -5,6 +5,10 @@ from .views import (
     login_page_view,
     register_page_view,
     dashboard_page_view,
+    sleep_page_view,
+    sport_page_view,
+    diet_page_view,
+    profile_page_view,
 
     register_view,
     login_view, 
@@ -45,6 +49,10 @@ urlpatterns = [
     # 将 '/dashboard/' 路径指向受保护的 dashboard_page_view 视图
     path('dashboard/', dashboard_page_view, name='dashboard'),
 
+    path('sleep/', sleep_page_view, name='sleep_page'),
+    path('sport/', sport_page_view, name='sport_page'),
+    path('diet/', diet_page_view, name='diet_page'),
+    path('profile/', profile_page_view, name='profile'),
 
     # ==========================================================
     #  API 路由 (API Routes)

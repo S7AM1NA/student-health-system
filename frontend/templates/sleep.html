@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}睡眠记录 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">今日睡眠记录</h1>
+        <button type="button" class="btn btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#sleepRecordModal">
+            <i class="bi bi-plus-circle-fill me-2"></i>
+            <span id="add-edit-button-text">添加/修改记录</span>
+        </button>
+    </header>
+
+    <!-- 数据显示卡片 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="row align-items-center text-center">
+                <div class="col-md-6 border-end">
+                    <p class="text-muted mb-1">睡眠时长</p>
+                    <h2 class="display-4 fw-bold" id="sleep-duration-display">-- 小时</h2>
+                </div>
+                <div class="col-md-6">
+                    <p class="text-muted mb-1">时间范围</p>
+                    <h4 class="fw-normal" id="sleep-range-display">未记录</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/修改睡眠记录的模态框 -->
+<div class="modal fade" id="sleepRecordModal" tabindex="-1" aria-labelledby="sleepRecordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sleepRecordModalLabel">记录你的睡眠</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sleep-form">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="sleep-time" class="form-label">入睡时间</label>
+                        <input type="datetime-local" class="form-control" id="sleep-time" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="wakeup-time" class="form-label">起床时间</label>
+                        <input type="datetime-local" class="form-control" id="wakeup-time" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="submit" form="sleep-form" class="btn btn-primary">保存记录</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'js/sleep.js' %}"></script>
+{% endblock %}

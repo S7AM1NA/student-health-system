@@ -58,6 +58,31 @@ def dashboard_page_view(request):
     # 告诉Django去 'frontend' 文件夹里找 dashboard.html
     return render(request, 'dashboard.html')
 
+@login_required(login_url='/login/')
+def profile_page_view(request):
+    return render(request, 'profile.html')
+
+@login_required(login_url='/login/')
+def sleep_page_view(request):
+    """
+    渲染睡眠记录页面
+    """
+    return render(request, 'sleep.html')
+
+@login_required(login_url='/login/')
+def sport_page_view(request):
+    """
+    渲染运动记录页面
+    """
+    return render(request, 'sport.html')
+
+@login_required(login_url='/login/')
+def diet_page_view(request):
+    """
+    渲染饮食记录页面
+    """
+    return render(request, 'diet.html')
+
 @csrf_exempt # 临时禁用CSRF保护，方便前端直接调用
 def register_view(request):
     if request.method == 'POST':
@@ -178,13 +203,31 @@ class MealViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        """
+        
+        现在此方法能够根据URL中的查询参数来过滤结果集：
+        - 支持按 `record_date` 筛选, e.g., /api/meals/?record_date=2025-08-01
+        - 支持按 `meal_type` 筛选, e.g., /api/meals/?meal_type=lunch
+        - 支持两者组合筛选, e.g., /api/meals/?record_date=2025-08-01&meal_type=lunch
+        """
+        # 1. 基础查询集：获取当前登录用户的所有餐次
         queryset = Meal.objects.filter(user=self.request.user).prefetch_related('meal_items__food_item')
         
-        # 【优化】支持按 record_date 查询参数进行筛选
-        record_date_str = self.request.query_params.get('record_date')
+        # 2. 按 'record_date' 参数进行筛选
+        #    我们从请求的查询参数中获取 'record_date' 的值
+        record_date_str = self.request.query_params.get('record_date', None)
         if record_date_str:
+            # 如果参数存在，就在现有查询集的基础上，追加一层过滤
             queryset = queryset.filter(record_date=record_date_str)
+
+        # 3. 按 'meal_type' 参数进行筛选
+        #    同样，我们获取 'meal_type' 的值
+        meal_type_str = self.request.query_params.get('meal_type', None)
+        if meal_type_str:
+            # 如果参数存在，再追加一层过滤
+            queryset = queryset.filter(meal_type=meal_type_str)
             
+        # 4. 返回最终经过层层筛选后的结果集，并按日期降序排列
         return queryset.order_by('-record_date')
 
     def perform_create(self, serializer):

@@ -1,0 +1,133 @@
+/* =================================================================== */
+/* 1. 全局颜色变量 (调色盘)                                           */
+/* =================================================================== */
+
+/* 日间模式 (默认主题) */
+:root {
+    --bg-gradient-start: #e7f5ff;
+    --bg-gradient-end: #ffffff;
+    --card-bg-color: #ffffff;
+    --text-color-primary: #212529;
+    --text-color-secondary: #6c757d;
+    --card-shadow-color: rgba(0, 0, 0, 0.05);
+    --card-hover-shadow-color: rgba(0, 0, 0, 0.1);
+    --theme-color: #0d6efd;
+    --switch-icon-url: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-moon-stars-fill" viewBox="0 0 16 16"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162h1.234a.217.217 0 0 1 .153.372l-.998.724.387 1.162a.217.217 0 0 1-.316.242l-1.002-.724-1.002.724a.217.217 0 0 1-.316-.242l.387-1.162-.998-.724a.217.217 0 0 1 .153-.372h1.234l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a.774.774 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a.774.774 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774.258c.346-.115.617-.386.732-.732L13.863.1z"/></svg>');
+}
+
+/* 夜间模式 */
+.dark-mode {
+    --bg-gradient-start: #1a202c;
+    --bg-gradient-end: #2d3748;
+    --card-bg-color: #4a5568;
+    --text-color-primary: #f7fafc;
+    --text-color-secondary: #a0aec0;
+    --card-shadow-color: rgba(0, 0, 0, 0.2);
+    --card-hover-shadow-color: rgba(0, 0, 0, 0.4);
+    --theme-color: #4299e1;
+    --switch-icon-url: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-sun-fill" viewBox="0 0 16 16"><path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/></svg>');
+}
+
+/* =================================================================== */
+/* 2. 全局基础样式 (应用变量)                                          */
+/* =================================================================== */
+
+body {
+    background: linear-gradient(to bottom, var(--bg-gradient-start), var(--bg-gradient-end));
+    min-height: 100vh;
+    color: var(--text-color-primary);
+    transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* 全局卡片样式 */
+.card {
+    background-color: var(--card-bg-color);
+    border: none;
+    box-shadow: 0 4px 8px var(--card-shadow-color);
+    transition: all 0.3s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px var(--card-hover-shadow-color);
+}
+
+.card-header, .card-title, h1, h2, h3, h4, h5, h6 {
+    color: var(--text-color-primary) !important;
+}
+
+p, .card-text, .text-muted {
+    color: var(--text-color-secondary) !important;
+}
+
+/* 全局主题色应用 */
+.text-primary {
+    color: var(--theme-color) !important;
+}
+.btn-primary {
+    background-color: var(--theme-color);
+    border-color: var(--theme-color);
+}
+
+/* =================================================================== */
+/* 3. 全局组件样式                                                    */
+/* =================================================================== */
+
+/* 昼夜切换按钮 (因为它会出现在所有页面) */
+.theme-switch-button {
+    position: fixed;
+    top: 80px; /* 调整位置，避免和导航栏太近 */
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--card-bg-color);
+    box-shadow: 0 4px 8px var(--card-shadow-color);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1050; /* 确保在其他元素之上 */
+    
+    background-image: var(--switch-icon-url);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 16px 16px;
+}
+
+.theme-switch-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 16px var(--card-hover-shadow-color);
+}
+
+.dark-mode .navbar.bg-light {
+    /* 覆盖掉 bg-light 的背景色 */
+    background-color: var(--card-bg-color) !important; 
+    /* 让导航栏的阴影也使用暗黑模式的颜色 */
+    box-shadow: 0 0.125rem 0.25rem var(--card-shadow-color) !important;
+}
+
+/* 同时，让导航栏上的文字颜色也适配 */
+.dark-mode .navbar-brand,
+.dark-mode .nav-link,
+.dark-mode .navbar-toggler-icon {
+    color: var(--text-color-primary) !important;
+}
+
+/* 修复汉堡按钮在暗黑模式下的颜色 */
+.dark-mode .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(247, 250, 252, 0.75)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* 全局 Alert 组件的暗黑模式适配 */
+.dark-mode .alert-success {
+    --bs-alert-bg: #1c4532; --bs-alert-color: #a3e6b4; --bs-alert-border-color: #2a6347;
+}
+.dark-mode .alert-warning {
+    --bs-alert-bg: #4d380c; --bs-alert-color: #fce3a2; --bs-alert-border-color: #8b6416;
+}
+.dark-mode .alert-info {
+    --bs-alert-bg: #0c3d5e; --bs-alert-color: #a1d6f5; --bs-alert-border-color: #16699c;
+}
+.dark-mode .alert-secondary {
+    --bs-alert-bg: #374151; --bs-alert-color: #d1d5db; --bs-alert-border-color: #4b5563;
+}
