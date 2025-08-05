@@ -45,6 +45,9 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'diet_page' %}active{% endif %}" href="{% url 'diet_page' %}">饮食</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'report_page' %}active{% endif %}" href="{% url 'report_page' %}">健康报告</a>
+                    </li>
                 </ul>
                 
                 <!-- 3. 右侧用户菜单 (保持不变) -->

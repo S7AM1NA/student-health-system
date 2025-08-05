@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}健康报告 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="mb-4">
+        <h1 class="h3">健康报告</h1>
+        <p class="text-muted">深入分析您的健康数据，发现趋势，获取建议。</p>
+    </header>
+
+    <!-- 2. 综合健康报告区域 -->
+    <section>
+        <h3 class="mb-3">本周综合健康评估</h3>
+        <div id="health-report-container">
+            <!-- JS将在这里动态填充报告内容 -->
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">正在生成报告...</span>
+                </div>
+                <p class="mt-2">正在生成报告...</p>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'js/report.js' %}"></script>
+{% endblock %}

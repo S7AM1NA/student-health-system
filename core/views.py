@@ -83,6 +83,13 @@ def diet_page_view(request):
     """
     return render(request, 'diet.html')
 
+@login_required(login_url='/login/')
+def report_page_view(request):
+    """
+    渲染健康报告页面
+    """
+    return render(request, 'report.html')
+
 @csrf_exempt # 临时禁用CSRF保护，方便前端直接调用
 def register_view(request):
     if request.method == 'POST':
@@ -541,7 +548,9 @@ class HealthReportView(APIView):
             analysis["suggestions"].append("您在此期间没有记录任何睡眠数据。规律睡眠是健康基石。")
             return analysis
 
-        analysis["data_coverage_percent"] = round((record_count / num_days) * 100)
+        unique_dates_count = records.values('wakeup_time__date').distinct().count()
+        # 2. 用不重复的日期数来计算覆盖率
+        analysis["data_coverage_percent"] = round((unique_dates_count / num_days) * 100) if num_days > 0 else 0
         summary = records.aggregate(
             avg_duration=Avg('duration'),
             min_duration=Min('duration'),

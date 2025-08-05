@@ -1,3 +1,18 @@
+/**
+ * 将 Date 对象格式化为 'YYYY-MM-DD' 字符串
+ * @param {Date} date - 要格式化的日期对象
+ * @returns {string}
+ */
+function getFormattedDate(date) {
+    if (!(date instanceof Date) || isNaN(date)) {
+        return ''; // 处理无效日期
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function getCsrfToken() {
     // 优先从HTML中的隐藏输入框获取
     const tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');

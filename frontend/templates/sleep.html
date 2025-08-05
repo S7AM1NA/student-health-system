@@ -5,12 +5,21 @@
 
 {% block content %}
 <div class="container">
-    <header class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3">今日睡眠记录</h1>
-        <button type="button" class="btn btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#sleepRecordModal">
-            <i class="bi bi-plus-circle-fill me-2"></i>
-            <span id="add-edit-button-text">添加/修改记录</span>
-        </button>
+    <header class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3"><span id="display-date">--</span> 的睡眠记录</h1>
+        </div>
+        <div class="d-flex align-items-center">
+            <div class="col-auto me-2">
+                 <input type="date" class="form-control" id="date-selector">
+            </div>
+            <button type="button" class="btn btn-secondary d-none me-2" id="edit-sleep-btn" data-bs-toggle="modal" data-bs-target="#sleepRecordModal">
+                修改记录
+            </button>
+            <button type="button" class="btn btn-primary" id="add-sleep-btn" data-bs-toggle="modal" data-bs-target="#sleepRecordModal">
+                添加新记录
+            </button>
+        </div>
     </header>
 
     <!-- 数据显示卡片 -->
@@ -28,6 +37,25 @@
             </div>
         </div>
     </div>
+
+    <!-- 周度睡眠图表区域 -->
+    <section class="mt-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>近期睡眠分析</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-8" style="height: 300px;">
+                        <canvas id="sleep-chart"></canvas>
+                    </div>
+                    <div class="col-lg-4" id="sleep-summary-container">
+                        <div class="text-center spinner-border" role="status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </div>
 
 <!-- 添加/修改睡眠记录的模态框 -->
@@ -41,6 +69,7 @@
             <div class="modal-body">
                 <form id="sleep-form">
                     {% csrf_token %}
+                    <input type="hidden" id="editing-id-input">
                     <div class="mb-3">
                         <label for="sleep-time" class="form-label">入睡时间</label>
                         <input type="datetime-local" class="form-control" id="sleep-time" required>
@@ -61,5 +90,6 @@
 {% endblock %}
 
 {% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="{% static 'js/sleep.js' %}"></script>
 {% endblock %}

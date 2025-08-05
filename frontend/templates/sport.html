@@ -6,8 +6,19 @@
 {% block content %}
 <div class="container">
     <header class="mb-4">
-        <h1 class="h3">今日运动记录</h1>
-        <p class="text-muted">今天你消耗了 <strong class="text-success" id="total-calories-display">0</strong> 大卡</p>
+        {# ✨ 修改点：加入了日期选择器 ✨ #}
+        <div class="d-flex flex-wrap justify-content-between align-items-center">
+            <div>
+                <h1 class="h3">运动记录</h1>
+                <p class="text-muted mb-0">
+                    <span id="display-date">--</span> 的运动消耗: 
+                    <strong class="text-success" id="total-calories-display">0</strong> 大卡
+                </p>
+            </div>
+            <div class="col-12 col-md-3 mt-2 mt-md-0">
+                <input type="date" class="form-control" id="date-selector">
+            </div>
+        </div>
     </header>
 
     <div class="row g-5">
@@ -38,10 +49,13 @@
 
         <!-- 右侧：今日运动列表 -->
         <div class="col-md-8">
-            <h4>记录列表</h4>
+            <h4 id="record-list-title">记录列表</h4>
             <ul class="list-group" id="sport-list">
-                <!-- JS会在这里动态填充运动记录 -->
-                <li class="list-group-item text-center text-muted">暂无运动记录</li>
+                <li class="list-group-item text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </li>
             </ul>
         </div>
     </div>

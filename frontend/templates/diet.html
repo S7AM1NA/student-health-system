@@ -6,8 +6,18 @@
 {% block content %}
 <div class="container">
     <header class="mb-4">
-        <h1 class="h3">今日饮食记录</h1>
-        <p class="text-muted">今天你摄入了 <strong class="text-danger" id="total-calories-eaten-display">0</strong> 大卡</p>
+        <div class="d-flex flex-wrap justify-content-between align-items-center">
+            <div>
+                <h1 class="h3">饮食记录</h1>
+                <p class="text-muted mb-0">
+                    <span id="display-date">--</span> 的总摄入: 
+                    <strong class="text-danger" id="total-calories-eaten-display">0</strong> 大卡
+                </p>
+            </div>
+            <div class="col-12 col-md-3 mt-2 mt-md-0">
+                <input type="date" class="form-control" id="date-selector">
+            </div>
+        </div>
     </header>
 
     <div class="row g-5">
@@ -30,10 +40,8 @@
                         <div class="mb-3">
                             <label for="food-item" class="form-label">食物名称</label>
                             <input type="text" class="form-control" id="food-item" list="food-datalist" placeholder="输入并选择食物" required>
-                            <!-- JS会动态获取食物库数据填充到这里 -->
                             <datalist id="food-datalist">
-                                <!-- <option value="苹果"></option> -->
-                                <!-- <option value="鸡胸肉"></option> -->
+                                <!-- JS会动态获取食物库数据填充到这里 -->
                             </datalist>
                         </div>
                         <div class="mb-3">
@@ -46,12 +54,15 @@
             </div>
         </div>
 
-        <!-- 右侧：今日饮食详情 -->
+        <!-- 右侧：饮食详情 -->
         <div class="col-md-8">
-            <h4>饮食详情</h4>
+            <h4 id="record-list-title">饮食详情</h4>
             <div id="diet-details-container">
-                <!-- JS会在这里动态填充饮食记录详情，比如用卡片展示每一餐 -->
-                <p class="text-center text-muted">暂无饮食记录</p>
+                <div class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -59,6 +70,7 @@
 {% endblock %}
 
 {% block extra_js %}
+    {# 模态框HTML代码现在属于本页面，放在这里是正确的 #}
     <div class="modal fade" id="editMealItemModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -68,9 +80,8 @@
                 </div>
                 <div class="modal-body">
                     <form id="edit-meal-item-form">
-                        <!-- 这个隐藏的input用来存储正在修改的item的ID -->
+                        {% csrf_token %}
                         <input type="hidden" id="edit-item-id">
-                        
                         <div class="mb-3">
                             <label class="form-label">食物名称</label>
                             <input type="text" class="form-control" id="edit-food-name" readonly>

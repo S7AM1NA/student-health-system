@@ -9,6 +9,7 @@ from .views import (
     sport_page_view,
     diet_page_view,
     profile_page_view,
+    report_page_view,
 
     register_view,
     login_view, 
@@ -54,6 +55,7 @@ urlpatterns = [
     path('sleep/', sleep_page_view, name='sleep_page'),
     path('sport/', sport_page_view, name='sport_page'),
     path('diet/', diet_page_view, name='diet_page'),
+    path('report/', report_page_view, name='report_page'),
     path('profile/', profile_page_view, name='profile'),
 
     # ==========================================================

@@ -6,35 +6,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const sportForm = document.getElementById('sport-form');
     const sportListEl = document.getElementById('sport-list');
     const totalCaloriesEl = document.getElementById('total-calories-display');
+    const dateSelector = document.getElementById('date-selector');
+    const displayDateEl = document.getElementById('display-date'); 
+    const recordListTitleEl = document.getElementById('record-list-title'); 
 
     // API的URL
     const API_SPORTS_URL = '/api/sports/';
 
     // --- 2. 核心功能函数 ---
 
-    // 函数：获取并渲染运动记录
+    /**
+     * @param {string} dateStr - 'YYYY-MM-DD'格式的日期
+     */
     async function fetchAndRenderSports(dateStr) {
-        // 构造带日期查询参数的URL
+        // 更新UI上的日期显示
+        displayDateEl.textContent = dateStr;
+        recordListTitleEl.textContent = `${dateStr} 的记录列表`;
+        sportListEl.innerHTML = `<li class="list-group-item text-center"><div class="spinner-border spinner-border-sm"></div></li>`;
+
         const url = `${API_SPORTS_URL}?record_date=${dateStr}`;
-        
         try {
             const response = await fetch(url, { credentials: 'include' });
-            if (!response.ok) {
-                // 如果是401/403，跳转到登录页
-                if (response.status === 401 || response.status === 403) {
-                    alert('请先登录！');
-                    window.location.href = '/login/';
-                    return;
-                }
-                throw new Error('获取运动数据失败');
-            }
-            
-            const sports = await response.json(); // sports 是一个包含当天记录的数组
-
-            // 渲染列表和总热量
+            if (!response.ok) throw new Error('获取运动数据失败');
+            const sports = await response.json();
             renderSportList(sports);
             updateTotalCalories(sports);
-
         } catch (error) {
             console.error(error);
             sportListEl.innerHTML = `<li class="list-group-item text-danger">数据加载失败: ${error.message}</li>`;
@@ -93,12 +89,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // TODO: 未来可以让用户选择日期来添加/修改历史记录
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const recordDate = `${year}-${month}-${day}`;
+        const recordDate = dateSelector.value;
+        if (!recordDate) {
+            alert('请先选择一个日期！');
+            return;
+        }
 
         // 2. 构建要发送到API的JSON数据
         const submitData = {
@@ -258,18 +253,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化页面
     function initializePage() {
         // 获取今天的日期 (未来可以从URL参数或一个全局状态获取)
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
-        
+        const todayStr = getFormattedDate(new Date());
+        dateSelector.value = todayStr;
         // 页面加载时，获取并渲染今天的数据
         fetchAndRenderSports(todayStr);
-
-        // 绑定表单提交事件
-        // sportForm.addEventListener('submit', handleFormSubmit);
-        console.log('获取到的sportForm元素是:', sportForm);
+        dateSelector.addEventListener('change', function() {
+            const selectedDate = this.value;
+            if (selectedDate) {
+                fetchAndRenderSports(selectedDate);
+            }
+        });
+        
         if (sportForm) { // ✨ 加上安全检查 ✨
             sportForm.addEventListener('submit', handleFormSubmit);
             sportListEl.addEventListener('click', function(event) {
