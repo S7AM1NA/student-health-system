@@ -24,7 +24,8 @@ from .views import (
     UserHealthGoalView,
     WeeklySleepReportView,
     HealthReportView,
-    HealthAlertView
+    HealthAlertView,
+    DietRecommendationView
 )
 
 from django.conf import settings
@@ -74,10 +75,11 @@ urlpatterns = [
     path('api/profile/', ProfileView.as_view(), name='api-profile'),
     path('api/goals/', UserHealthGoalView.as_view(), name='api-health-goals'),
     
-    # 3. 报告与预警 API
+    # 3. 报告、预警与推荐 API
     path('api/reports/weekly-sleep/<str:end_date_str>/', WeeklySleepReportView.as_view(), name='weekly-sleep-report'),
     path('api/reports/health-summary/', HealthReportView.as_view(), name='health-report'),
     path('api/alerts/check/', HealthAlertView.as_view(), name='api-health-alerts'),
+    path('api/recommendations/diet/', DietRecommendationView.as_view(), name='api-diet-recommendation'),
 
     # 4. 所有由 ViewSet 自动生成的 CRUD API
     path('api/', include(router.urls)),

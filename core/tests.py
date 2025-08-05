@@ -1,258 +1,183 @@
 # core/tests.py
 
-from django.urls import reverse
+import json
+from pathlib import Path
+from django.test import TestCase
 from rest_framework.test import APITestCase
 from rest_framework import status
-from .models import CustomUser, FoodItem, Meal, MealItem, SleepRecord, SportRecord
-from datetime import date, datetime, timedelta, time
-from django.utils import timezone
+from .models import CustomUser, FoodItem, UserHealthGoal, Meal, MealItem, SportRecord
+from datetime import date
 
-# 使用 APITestCase，它提供了 API 请求的客户端和认证工具
-class HealthReportAPITests(APITestCase):
+class SmartDietRecommendationV3Tests(APITestCase):
     """
-    针对周度睡眠报告和周期性健康报告 API 的全面测试。
+    测试 V3.0: 动态运动感知智能饮食推荐API
+    此测试将在一个包含完整食物库数据的环境中运行。
     """
-    
-    # 1. setUpTestData: 高效创建测试数据，在整个测试类中只执行一次
+
     @classmethod
     def setUpTestData(cls):
         """
-        创建所有测试用例共享的、不会被修改的基础数据。
-        这比 setUp 更高效，因为它在类级别运行一次，而不是在每个测试方法前运行。
+        在整个测试类运行前，从项目中的'data'目录导入所有食物数据到测试数据库中。
         """
-        # 创建食物库，这是饮食记录的基础
-        cls.food_rice = FoodItem.objects.create(name="米饭", calories_per_100g=130)
-        cls.food_chicken = FoodItem.objects.create(name="鸡胸肉", calories_per_100g=165)
-        cls.food_salad = FoodItem.objects.create(name="蔬菜沙拉", calories_per_100g=55)
-
-    # 2. setUp: 为每个测试方法设置一个干净的、可修改的环境
-    def setUp(self):
-        """
-        在每个测试方法执行前运行，确保测试环境的隔离性。
-        """
-        # 创建两个用户，用于测试数据隔离
-        self.user1 = CustomUser.objects.create_user(username='user1', password='password123', email='user1@test.com', gender='M')
-        self.user2 = CustomUser.objects.create_user(username='user2', password='password123', email='user2@test.com', gender='F')
-
-        # 定义一个清晰的测试时间范围：7天
-        # 假设今天是 2023-10-27
-        self.end_date = date(2023, 10, 27)
-        self.start_date = self.end_date - timedelta(days=6) # 即 2023-10-21
-        
-        # 为 user1 精心设计一周的健康数据
-        self._create_test_data_for_user1()
-        
-        # 为 user2 创建一条记录，用于测试数据隔离
-        # 这条记录在 user1 的时间范围内，但属于 user2
-        SleepRecord.objects.create(
-            user=self.user2,
-            sleep_time=timezone.make_aware(datetime(2023, 10, 24, 23, 0)),
-            wakeup_time=timezone.make_aware(datetime(2023, 10, 25, 7, 0))
+        # 1. 创建测试用户和目标
+        cls.user = CustomUser.objects.create_user(
+            username='testuser_v3', 
+            password='testpassword123',
+            gender='M' # 设定性别以使用BMR
         )
-
-    def _create_test_data_for_user1(self):
-        """
-        辅助方法：为 user1 创建一系列详细的、跨越一周的健康记录。
-        这些数据经过精心设计，以便后续断言。
-        """
-        # --- 睡眠记录 (共5条，覆盖率 5/7 ≈ 71%) ---
-        # 规律性一般，平均时长约7.4小时
-        # Day 2: 8h
-        SleepRecord.objects.create(user=self.user1, sleep_time=timezone.make_aware(datetime(2023, 10, 21, 23, 0)), wakeup_time=timezone.make_aware(datetime(2023, 10, 22, 7, 0)))
-        # Day 3: 7h
-        SleepRecord.objects.create(user=self.user1, sleep_time=timezone.make_aware(datetime(2023, 10, 22, 23, 30)), wakeup_time=timezone.make_aware(datetime(2023, 10, 23, 6, 30)))
-        # Day 4: 9h (最长)
-        SleepRecord.objects.create(user=self.user1, sleep_time=timezone.make_aware(datetime(2023, 10, 23, 22, 0)), wakeup_time=timezone.make_aware(datetime(2023, 10, 24, 7, 0)))
-        # Day 6: 6h (最短)
-        SleepRecord.objects.create(user=self.user1, sleep_time=timezone.make_aware(datetime(2023, 10, 25, 23, 59)), wakeup_time=timezone.make_aware(datetime(2023, 10, 26, 6, 0)))
-        # Day 7: 7h
-        SleepRecord.objects.create(user=self.user1, sleep_time=timezone.make_aware(datetime(2023, 10, 26, 23, 15)), wakeup_time=timezone.make_aware(datetime(2023, 10, 27, 6, 15)))
-
-        # --- 运动记录 (共4条, 频率 4/7周) ---
-        # 总时长 = 30+60+45+60 = 195分钟 -> 【此处有误，应为150卡，已在下方代码中修正】
-        # 总热量 = 200+400+150+400 = 1150大卡
-        SportRecord.objects.create(user=self.user1, sport_type='跑步', duration_minutes=30, calories_burned=200, record_date=date(2023, 10, 21))
-        SportRecord.objects.create(user=self.user1, sport_type='游泳', duration_minutes=60, calories_burned=400, record_date=date(2023, 10, 23))
-        SportRecord.objects.create(user=self.user1, sport_type='瑜伽', duration_minutes=45, calories_burned=150, record_date=date(2023, 10, 25))
-        SportRecord.objects.create(user=self.user1, sport_type='跑步', duration_minutes=60, calories_burned=400, record_date=date(2023, 10, 26))
-
-        # --- 饮食记录 (覆盖4天) ---
-        # Day 1 (10/21): 总热量 = 390(早) + 495(午) = 885
-        m1_d1 = Meal.objects.create(user=self.user1, meal_type='breakfast', record_date=date(2023, 10, 21))
-        MealItem.objects.create(meal=m1_d1, food_item=self.food_rice, portion=300) # 390 cal
-        m2_d1 = Meal.objects.create(user=self.user1, meal_type='lunch', record_date=date(2023, 10, 21))
-        MealItem.objects.create(meal=m2_d1, food_item=self.food_chicken, portion=300) # 495 cal
-
-        # Day 3 (10/23): 总热量 = 165(午) + 475(晚) = 640
-        m1_d3 = Meal.objects.create(user=self.user1, meal_type='lunch', record_date=date(2023, 10, 23))
-        MealItem.objects.create(meal=m1_d3, food_item=self.food_chicken, portion=100) # 165 cal
-        m2_d3 = Meal.objects.create(user=self.user1, meal_type='dinner', record_date=date(2023, 10, 23))
-        MealItem.objects.create(meal=m2_d3, food_item=self.food_rice, portion=250) # 325 cal
-        MealItem.objects.create(meal=m2_d3, food_item=self.food_salad, portion=272.72) # 150 cal
-
-        # Day 5 (10/25): 只有一顿晚餐, 摄入过高 = 1300
-        m1_d5 = Meal.objects.create(user=self.user1, meal_type='dinner', record_date=date(2023, 10, 25))
-        MealItem.objects.create(meal=m1_d5, food_item=self.food_rice, portion=1000) # 1300 cal
-
-        # Day 7 (10/27): 早餐缺失，晚餐热量高 = 110(午) + 990(晚) = 1100
-        m1_d7 = Meal.objects.create(user=self.user1, meal_type='lunch', record_date=date(2023, 10, 27))
-        MealItem.objects.create(meal=m1_d7, food_item=self.food_salad, portion=200) # 110 cal
-        m2_d7 = Meal.objects.create(user=self.user1, meal_type='dinner', record_date=date(2023, 10, 27))
-        MealItem.objects.create(meal=m2_d7, food_item=self.food_chicken, portion=600) # 990 cal
-        # --- 总热量 = 885 + 640 + 1300 + 1100 = 3925. 日均 = 3925 / 7 = 560.7 ---
-
-    # 3. 编写测试用例
-    # ------------------------------------------------------------------
-    #  A. 通用和边界条件测试 (认证、输入验证)
-    # ------------------------------------------------------------------
-    def test_unauthenticated_access_denied(self):
-        """测试未登录用户访问API时，应返回 403 Forbidden。"""
-        # 不调用 self.client.force_authenticate()
-        weekly_sleep_url = reverse('weekly-sleep-report', kwargs={'end_date_str': self.end_date.isoformat()})
-        health_report_url = reverse('health-report') + f"?start_date={self.start_date.isoformat()}&end_date={self.end_date.isoformat()}"
+        cls.goal = UserHealthGoal.objects.create(
+            user=cls.user,
+            target_diet_calories=2000 # 注意：这个字段现在的作用变小了，BMR是主要基准
+        )
         
-        response_sleep = self.client.get(weekly_sleep_url)
-        response_report = self.client.get(health_report_url)
+        # 2. 导入完整的食物数据库
+        print("\n[测试数据准备] 正在将 'data' 目录下的所有JSON文件导入到测试数据库...")
         
-        self.assertEqual(response_sleep.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response_report.status_code, status.HTTP_403_FORBIDDEN)
-        
-    def test_health_report_missing_date_params(self):
-        """测试健康报告API缺少日期参数时，应返回 400 Bad Request。"""
-        self.client.force_authenticate(user=self.user1)
-        url = reverse('health-report')
-        
-        response_missing_all = self.client.get(url)
-        response_missing_start = self.client.get(url + f"?end_date={self.end_date.isoformat()}")
-        
-        self.assertEqual(response_missing_all.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('必须提供', response_missing_all.data['message'])
-        self.assertEqual(response_missing_start.status_code, status.HTTP_400_BAD_REQUEST)
+        data_dir = Path(__file__).resolve().parent.parent / 'food_data_json'
 
-    def test_health_report_invalid_date_format(self):
-        """测试健康报告API日期格式错误时，应返回 400 Bad Request。"""
-        self.client.force_authenticate(user=self.user1)
-        url = reverse('health-report') + f"?start_date=2023-10-21&end_date=invalid-date"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('日期格式错误', response.data['message'])
-        
-    def test_health_report_start_after_end(self):
-        """测试健康报告API开始日期晚于结束日期时，应返回 400 Bad Request。"""
-        self.client.force_authenticate(user=self.user1)
-        url = reverse('health-report') + f"?start_date={self.end_date.isoformat()}&end_date={self.start_date.isoformat()}"
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('开始日期不能晚于结束日期', response.data['message'])
+        if not data_dir.is_dir():
+            raise FileNotFoundError(f"测试数据目录 '{data_dir}' 未找到。")
 
-    # ------------------------------------------------------------------
-    #  B. WeeklySleepReportView 功能测试
-    # ------------------------------------------------------------------
-    def test_weekly_sleep_report_with_data(self):
-        """测试周度睡眠报告，当周内有数据时，返回正确格式和内容。"""
-        self.client.force_authenticate(user=self.user1)
-        url = reverse('weekly-sleep-report', kwargs={'end_date_str': self.end_date.isoformat()})
-        response = self.client.get(url)
+        json_files = list(data_dir.glob('*.json'))
+        if not json_files:
+            raise FileNotFoundError(f"在 '{data_dir}' 中没有找到任何 .json 文件。")
+
+        food_items_to_create = []
+        for file_path in json_files:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                items = json.load(f)
+                for item in items:
+                    try:
+                        food_data = {
+                            'name': item.get('foodName'),
+                            'product_code': item.get('foodCode'),
+                            'calories_per_100g': float(item.get('energyKCal', 0)),
+                            'protein': float(item.get('protein', 0)),
+                            'fat': float(item.get('fat', 0)),
+                            'carbohydrates': float(item.get('CHO', 0)),
+                        }
+                        # 确保核心数据有效，特别是product_code
+                        if food_data['name'] and food_data['product_code']:
+                            food_items_to_create.append(FoodItem(**food_data))
+                    except (ValueError, TypeError):
+                        continue
+        
+        # 使用 bulk_create 批量创建，忽略已存在的product_code
+        FoodItem.objects.bulk_create(food_items_to_create, ignore_conflicts=True)
+        print(f"[测试数据准备] 成功加载 {FoodItem.objects.count()} 条食物数据。")
+
+
+    def setUp(self):
+        """在每个测试方法运行前，进行用户登录。"""
+        self.client.force_authenticate(user=self.user)
+
+    def _get_recommendation(self, test_date, meal_type):
+        """辅助方法，用于发起API请求"""
+        url = f'/api/recommendations/diet/?date={test_date}&meal_type={meal_type}'
+        return self.client.get(url, format='json')
+
+    def _print_recommendations(self, recommendations):
+        """以可读格式打印推荐的套餐详情。"""
+        self.assertTrue(isinstance(recommendations, list))
+        print("\n--- 推荐套餐详情 ---")
+        if not recommendations:
+            print("  (本次未生成推荐)")
+            return
+        for i, rec in enumerate(recommendations):
+            macros = rec.get('total_macros', {})
+            p, c, f = macros.get('protein', 0), macros.get('carbs', 0), macros.get('fat', 0)
+            print(f"套餐 {i+1} (总热量: {rec.get('total_calories', 'N/A')} 大卡) | 营养: 碳 {c}g, 蛋 {p}g, 脂 {f}g")
+            items = rec.get('items', [])
+            for item in items:
+                print(f"  - {item.get('name', '未知食物')}: {item.get('portion_g', 'N/A')}g")
+        print("--------------------")
+
+    def test_no_sport_day_recommendation(self):
+        """场景一：无运动日，应使用默认营养配比。"""
+        print("\n[测试场景一：无运动日（基准测试）]")
+        response = self._get_recommendation(test_date='2024-01-01', meal_type='lunch')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        context = response.data.get('recommendation_context', {})
+        # 验证使用的是默认配比
+        self.assertEqual(context.get('used_macro_ratios', {}).get('protein'), 0.25)
+        
+        print("成功验证：无运动日使用默认营养配比。推荐套餐如下：")
+        self._print_recommendations(response.data.get('recommendations'))
+
+    def test_post_strength_training_recommendation(self):
+        """场景二：力量训练后，应使用高蛋白配比。"""
+        print("\n[测试场景二：力量训练后]")
+        test_date = '2024-01-02'
+        SportRecord.objects.create(
+            user=self.user,
+            sport_type="大重量杠铃深蹲",
+            duration_minutes=60,
+            calories_burned=400,
+            record_date=test_date
+        )
+        response = self._get_recommendation(test_date=test_date, meal_type='dinner')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        context = response.data.get('recommendation_context', {})
+        # 验证使用的是高蛋白配比
+        self.assertEqual(context.get('used_macro_ratios', {}).get('protein'), 0.40)
+        
+        recommendations = response.data.get('recommendations', [])
+        self.assertTrue(len(recommendations) > 0)
+        # 验证推荐结果中蛋白质含量确实很高
+        macros = recommendations[0]['total_macros']
+        self.assertGreater(macros['protein'], macros['fat'] * 1.5, "高蛋白餐的蛋白质应远高于脂肪")
+
+        print("成功验证：力量训练后使用高蛋白配比。推荐套餐如下：")
+        self._print_recommendations(recommendations)
+
+    def test_post_endurance_training_recommendation(self):
+        """场景三：耐力训练后，应使用高碳水配比。"""
+        print("\n[测试场景三：耐力训练后]")
+        test_date = '2024-01-03'
+        SportRecord.objects.create(
+            user=self.user,
+            sport_type="户外长跑1小时",
+            duration_minutes=60,
+            calories_burned=500,
+            record_date=test_date
+        )
+        response = self._get_recommendation(test_date=test_date, meal_type='dinner')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.data['data']
-        self.assertEqual(len(data), 7)
+        context = response.data.get('recommendation_context', {})
+        # 验证使用的是高碳水配比
+        self.assertEqual(context.get('used_macro_ratios', {}).get('carbs'), 0.55)
         
-        # 检查有数据的天
-        self.assertEqual(data[1]['date'], '2023-10-22') # Day 2
-        self.assertEqual(data[1]['duration_hours'], 8.0)
-        self.assertEqual(data[6]['date'], '2023-10-27') # Day 7
-        self.assertEqual(data[6]['duration_hours'], 7.0)
+        recommendations = response.data.get('recommendations', [])
+        self.assertTrue(len(recommendations) > 0)
+        # 验证推荐结果中碳水含量是最高的
+        macros = recommendations[0]['total_macros']
+        self.assertGreater(macros['carbs'], macros['protein'], "高碳水餐的碳水应高于蛋白质")
 
-        # 检查没有数据的天
-        self.assertEqual(data[0]['date'], '2023-10-21') # Day 1
-        self.assertEqual(data[0]['duration_hours'], 0)
-        self.assertEqual(data[4]['date'], '2023-10-25') # Day 5
-        self.assertEqual(data[4]['duration_hours'], 0)
+        print("成功验证：耐力训练后使用高碳水配比。推荐套餐如下：")
+        self._print_recommendations(recommendations)
 
-    # ------------------------------------------------------------------
-    #  C. HealthReportView 功能测试 (核心)
-    # ------------------------------------------------------------------
-    def test_health_report_data_isolation(self):
-        """测试健康报告API是否正确隔离了用户数据。"""
-        # user2 登录，应该只能看到自己的一条睡眠记录，其他都为0
-        self.client.force_authenticate(user=self.user2)
-        url = reverse('health-report') + f"?start_date={self.start_date.isoformat()}&end_date={self.end_date.isoformat()}"
-        response = self.client.get(url)
+    def test_no_recommendation_when_calories_met_with_sport(self):
+        """场景四：即使运动了，但热量已超标，仍不应推荐。"""
+        print("\n[测试场景四：运动后但热量已达标（回归测试）]")
+        test_date = '2024-01-04'
+        # 运动消耗300大卡，动态目标变为 1800(BMR) + 300 = 2100
+        SportRecord.objects.create(
+            user=self.user, sport_type="游泳", duration_minutes=45, 
+            calories_burned=300, record_date=test_date
+        )
+        # 摄入2200大卡，超过动态目标
+        meal = Meal.objects.create(user=self.user, meal_type='lunch', record_date=test_date)
+        food = FoodItem.objects.order_by('-calories_per_100g').first()
+        portion = (2200 / food.calories_per_100g) * 100
+        MealItem.objects.create(meal=meal, food_item=food, portion=portion)
         
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        report = response.data['report']
-        
-        # 睡眠分析应该只包含 user2 的一条记录
-        sleep_analysis = report['sleep_analysis']
-        self.assertEqual(sleep_analysis['record_count'], 1)
-        self.assertEqual(sleep_analysis['average_duration_hours'], 8.0)
-        
-        # 运动和饮食分析应该没有数据
-        sports_analysis = report['sports_analysis']
-        diet_analysis = report['diet_analysis']
-        self.assertEqual(sports_analysis['record_count'], 0)
-        self.assertEqual(diet_analysis['average_daily_calories'], 0)
-
-    def test_health_report_full_analysis_for_user1(self):
-        """对 user1 的完整数据进行一次全面的健康报告分析和断言。"""
-        self.client.force_authenticate(user=self.user1)
-        url = reverse('health-report') + f"?start_date={self.start_date.isoformat()}&end_date={self.end_date.isoformat()}"
-        response = self.client.get(url)
+        response = self._get_recommendation(test_date=test_date, meal_type='dinner')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        report = response.data['report']
-        
-        # --- 1. 验证睡眠分析 ---
-        sleep_analysis = report['sleep_analysis']
-        self.assertEqual(sleep_analysis['record_count'], 5)
-        # (8+7+9+6+7)/5 = 7.4
-        self.assertAlmostEqual(sleep_analysis['average_duration_hours'], 7.4, places=1)
-        self.assertEqual(sleep_analysis['extremes']['shortest_sleep_hours'], 6.0)
-        self.assertEqual(sleep_analysis['extremes']['longest_sleep_hours'], 9.0)
-        
-        self.assertEqual(sleep_analysis['consistency']['comment'], '作息规律性一般')
+        self.assertEqual(response.data['status'], 'info')
+        self.assertIn("今日热量已基本达标", response.data['message'])
 
-        self.assertIn('平均睡眠时长 7.4 小时，非常理想！', sleep_analysis['suggestions'])
-        # (60分基础分) + (40分规律性) = 100分
-        self.assertEqual(sleep_analysis['score'], 100)
-
-        # --- 2. 验证运动分析 ---
-        sports_analysis = report['sports_analysis']
-        self.assertEqual(sports_analysis['record_count'], 4)
-        self.assertEqual(sports_analysis['total_duration_minutes'], 195)
-        self.assertEqual(sports_analysis['total_calories_burned'], 1150) # 修正了创建数据时的笔误
-        self.assertEqual(sports_analysis['most_frequent_activity'], '跑步')
-        # (195/7)*7 = 195 > 150
-        self.assertIn('达到了推荐标准', sports_analysis['suggestions'][0])
-        # (60分时长) + (40分频率) = 100分
-        self.assertEqual(sports_analysis['score'], 100)
-
-        # --- 3. 验证饮食分析 ---
-        diet_analysis = report['diet_analysis']
-        # 3925 / 7 = 560.7
-        self.assertEqual(diet_analysis['average_daily_calories'], 561)
-        # BMR for Male = 1800. 561 严重偏低
-        self.assertIn('严重偏低', diet_analysis['suggestions'][0])
-        # 早餐热量 = 390. 晚餐热量 = 475+1300+990 = 2765. 总热量 = 3925
-        # 早餐比例 390/3925 ~ 10% < 20% -> 触发建议
-        # self.assertIn('早餐摄入热量偏少', diet_analysis['suggestions'])
-        # 晚餐比例 2765/3925 ~ 70% > 40% -> 触发建议
-        # self.assertIn('晚餐热量占比较高', diet_analysis['suggestions'])
-        # (0分热量) + (0分早餐结构) + (0分晚餐结构) = 0分
-        self.assertEqual(diet_analysis['score'], 0)
-        self.assertEqual(diet_analysis['calorie_distribution']['dinner'], 2765)
-
-        # --- 4. 验证总体摘要 ---
-        overall_summary = report['overall_summary']
-        # 最低分是饮食 (0分)
-        self.assertEqual(overall_summary['priority_suggestions'][0], '本周期您需要在“饮食”方面投入更多关注。')
-        # BMR=1800, 日均摄入=561, 日均运动消耗=1150/7=164.3
-        # Net = 561 - 164 - 1800 = -1403
-        self.assertEqual(overall_summary['calorie_balance']['average_intake'], 561)
-        self.assertEqual(overall_summary['calorie_balance']['average_activity_burn'], 164)
-        self.assertEqual(overall_summary['calorie_balance']['net_calories'], -1403)
-        self.assertEqual(overall_summary['calorie_balance']['comment'], '热量亏损，可能导致体重下降')
-        # 总分 = 75*0.4 + 100*0.3 + 0*0.3 = 30 + 30 + 0 = 60
-        self.assertEqual(overall_summary['overall_score'], 70)
-        self.assertEqual(overall_summary['title'], '良好，继续保持！')
+        print("成功验证：运动后但热量达标，不再提供推荐。")

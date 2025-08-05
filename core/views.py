@@ -1,4 +1,4 @@
-import json
+import json, requests, random
 from django.http import JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_exempt # 方便开发阶段调试API
@@ -19,6 +19,62 @@ from .serializers import (
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+
+# ==========================================================
+# 【新增】外部食物数据服务
+# ==========================================================
+class OpenFoodFactsService:
+    """
+    一个专门用于从 Open Food Facts API 获取数据并缓存到本地数据库的服务。
+    """
+    BASE_URL = "https://world.openfoodfacts.org/cgi/search.pl"
+    
+    def fetch_and_cache_foods(self, search_term, page_size=20):
+        """
+        根据搜索词从 API 获取食物数据，并将其存储或更新到本地 FoodItem 模型中。
+        """
+        params = {
+            "search_terms": search_term,
+            "search_simple": 1,
+            "action": "process",
+            "json": 1,
+            "page_size": page_size,
+            # 添加筛选条件，我们只关心有完整营养成分的食物
+            "tagtype_0": "states",
+            "tag_contains_0": "contains",
+            "tag_0": "en:nutrition-facts-completed"
+        }
+
+        try:
+            # 设置10秒超时，防止外部API响应过慢影响我们的服务
+            response = requests.get(self.BASE_URL, params=params, timeout=10)
+            response.raise_for_status() # 如果请求失败 (例如 404, 500), 会抛出异常
+            data = response.json()
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            # 如果API出错，打印错误日志并安全退出，不影响后续逻辑
+            print(f"从Open Food Facts获取'{search_term}'数据时出错: {e}")
+            return
+
+        products = data.get("products", [])
+        
+        for product in products:
+            # 确保产品包含我们需要的所有核心数据
+            code = product.get('code')
+            name = product.get('product_name')
+            # API以千焦(kj)和千卡(kcal)两种单位提供能量，我们使用kcal
+            calories = product.get('nutriments', {}).get('energy-kcal_100g')
+
+            if all([code, name, calories]):
+                # 使用 update_or_create 方法来高效地处理缓存：
+                # 它会根据 product_code 查找。如果找到，则更新记录；如果没找到，则创建新记录。
+                # 这完美地避免了数据重复。
+                FoodItem.objects.update_or_create(
+                    product_code=code,
+                    defaults={
+                        'name': name,
+                        'calories_per_100g': float(calories)
+                    }
+                )
 
 def index_view(request):
     """
@@ -834,3 +890,211 @@ class HealthAlertView(APIView):
                 break
         
         return Response(alerts)
+    
+# 智能饮食推荐视图
+class DietRecommendationView(APIView):
+    """
+    V4.0: 模拟大厨配餐逻辑，不仅考虑营养，更注重荤素搭配和套餐的合理性。
+    """
+    permission_classes = [IsAuthenticated]
+
+    # ... (宏量营养素配比和常量定义与V3.0相同) ...
+    DEFAULT_MACRO_RATIOS = {'carbs': 0.50, 'protein': 0.25, 'fat': 0.25}
+    STRENGTH_MACRO_RATIOS = {'carbs': 0.40, 'protein': 0.40, 'fat': 0.20}
+    ENDURANCE_MACRO_RATIOS = {'carbs': 0.55, 'protein': 0.25, 'fat': 0.20}
+    MIXED_MACRO_RATIOS = {'carbs': 0.45, 'protein': 0.35, 'fat': 0.20}
+    CALORIES_PER_GRAM = {'carbs': 4, 'protein': 4, 'fat': 9}
+    MEAL_CALORIE_RATIOS = {'breakfast': 0.30, 'lunch': 0.40, 'dinner': 0.30, 'snack': 0.15}
+    CALORIE_TOLERANCE = 0.1
+
+    def get(self, request):
+        # ... (此部分代码与V3.0相同，用于计算 target_meal_calories) ...
+        user = request.user
+        date_str = request.query_params.get('date')
+        meal_type = request.query_params.get('meal_type')
+        if not date_str or not meal_type or meal_type not in self.MEAL_CALORIE_RATIOS:
+            return Response({'status': 'error', 'message': '必须提供有效的 date 和 meal_type'}, status=400)
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'status': 'error', 'message': '日期格式错误'}, status=400)
+
+        bmr = 1800 if user.gender == 'M' else 1500
+        sports_today = SportRecord.objects.filter(user=user, record_date=target_date)
+        calories_burned_today = sports_today.aggregate(total=Sum('calories_burned'))['total'] or 0
+        dynamic_target_calories = bmr + calories_burned_today
+
+        meals_today = Meal.objects.filter(user=user, record_date=target_date)
+        calories_eaten_today = sum(meal.total_calories for meal in meals_today)
+        remaining_calories = dynamic_target_calories - calories_eaten_today
+        
+        if remaining_calories <= 100:
+             return Response({"status": "info", "message": "今日热量已基本达标", "recommendations": []})
+        
+        target_meal_calories = remaining_calories * self.MEAL_CALORIE_RATIOS[meal_type]
+
+        # 【核心算法升级】
+        latest_sport = sports_today.order_by('-id').first()
+        macro_ratios = self._get_dynamic_macro_ratios(latest_sport)
+        
+        # 1. 计算本餐的宏量营养素目标（单位：克）
+        target_protein = (target_meal_calories * macro_ratios['protein']) / self.CALORIES_PER_GRAM['protein']
+        target_carbs = (target_meal_calories * macro_ratios['carbs']) / self.CALORIES_PER_GRAM['carbs']
+        target_fat = (target_meal_calories * macro_ratios['fat']) / self.CALORIES_PER_GRAM['fat']
+        
+        # 2. 食物分类
+        food_categories = self._categorize_foods()
+        if not food_categories['protein_sources'] or not food_categories['carb_sources']:
+             return Response({'status': 'error', 'message': '食物库中缺少必要的主食或蛋白质来源'}, status=500)
+
+        # 3. 生成并评分候选套餐
+        candidates = []
+        for _ in range(50):
+            # 传递更具体的目标给构建器
+            combo = self._build_one_combo_v4(food_categories, target_protein, target_carbs, target_fat)
+            if combo:
+                score = self._score_combo(combo, target_meal_calories, macro_ratios)
+                candidates.append((score, combo))
+
+        if not candidates:
+            return Response({'status': 'error', 'message': '无法生成合适的饮食推荐'}, status=500)
+
+        # 4. 排序并返回最优结果
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        top_3_recommendations = [combo for score, combo in candidates[:3]]
+        
+        # ... (返回Response的代码与V3.0相同) ...
+        return Response({
+            "status": "success",
+            "message": f"根据您今天的运动情况，为您生成了{meal_type}的营养推荐",
+            "recommendation_context": {
+                "dynamic_target_calories": round(dynamic_target_calories),
+                "bmr_estimated": bmr,
+                "calories_burned_from_sport": round(calories_burned_today),
+                "calories_eaten_today": round(calories_eaten_today),
+                "target_meal_calories": round(target_meal_calories),
+                "target_macros_grams": {"protein": round(target_protein), "carbs": round(target_carbs), "fat": round(target_fat)},
+                "used_macro_ratios": macro_ratios,
+            },
+            "recommendations": top_3_recommendations
+        })
+
+    def _categorize_foods(self):
+        """【升级】更精细的食物分类"""
+        categories = {
+            'protein_sources': [], 'carb_sources': [], 'fat_sources': [],
+            'vegetables': [], 'fruits': []
+        }
+        all_foods = FoodItem.objects.filter(calories_per_100g__gt=0).exclude(protein__isnull=True).exclude(fat__isnull=True).exclude(carbohydrates__isnull=True)
+        
+        for food in all_foods:
+            p, c, f = food.protein, food.carbohydrates, food.fat
+            total = p + c + f
+            if total == 0: continue
+
+            # 定义分类逻辑
+            # 水果类（基于名称和中等碳水）
+            if any(keyword in food.name for keyword in ['果', '莓', '蕉', '瓜', '梨', '桃', '李', '杏', '枣', '橘', '橙', '柚', '提', '葡', '芒']):
+                if c / total > 0.4 and food.calories_per_100g < 100:
+                    categories['fruits'].append(food)
+                    continue
+            # 主要蛋白质来源 (肉、蛋、豆制品)
+            if p / total > 0.35 and c / total < 0.4:
+                categories['protein_sources'].append(food)
+            # 主要碳水来源 (主食、根茎类)
+            elif c / total > 0.5:
+                categories['carb_sources'].append(food)
+            # 主要脂肪来源 (坚果、油)
+            elif f / total > 0.5:
+                categories['fat_sources'].append(food)
+            # 蔬菜类 (低卡)
+            elif food.calories_per_100g < 60:
+                categories['vegetables'].append(food)
+        return categories
+
+    def _build_one_combo_v4(self, categories, target_p, target_c, target_f):
+        """【V4核心算法】模拟大厨配餐，注重荤素搭配"""
+        combo_items = []
+        
+        # --- 1. 定主菜 (蛋白质) ---
+        protein_food = random.choice(categories['protein_sources'])
+        # 目标是满足蛋白质需求的 70% ~ 100%
+        protein_needed = target_p * random.uniform(0.7, 1.0)
+        # 计算所需份量 (克)
+        protein_portion = (protein_needed / protein_food.protein) * 100 if protein_food.protein > 0 else 0
+        if protein_portion > 0:
+            combo_items.append({'food': protein_food, 'portion': round(protein_portion / 10) * 10})
+
+        # --- 2. 配主食 (碳水) ---
+        carb_food = random.choice(categories['carb_sources'])
+        carb_needed = target_c * random.uniform(0.8, 1.0)
+        carb_portion = (carb_needed / carb_food.carbohydrates) * 100 if carb_food.carbohydrates > 0 else 0
+        if carb_portion > 0:
+            combo_items.append({'food': carb_food, 'portion': round(carb_portion / 10) * 10})
+
+        # --- 3. 加蔬菜 (保证份量) ---
+        if categories['vegetables']:
+            # 随机选择1到2种蔬菜
+            num_veg = random.randint(1, 2)
+            selected_veg = random.sample(categories['vegetables'], min(num_veg, len(categories['vegetables'])))
+            for veg in selected_veg:
+                # 蔬菜份量固定在100-200g，保证“看得到”
+                veg_portion = random.choice([100, 150, 200])
+                combo_items.append({'food': veg, 'portion': veg_portion})
+
+        # --- 4. (可选) 补充脂肪或水果 ---
+        # 计算当前已有的宏量
+        current_macros = self._format_combo(combo_items)['total_macros']
+        fat_gap = target_f - current_macros['fat']
+
+        # 如果脂肪不足，且有脂肪源，且有50%几率
+        if fat_gap > 3 and categories['fat_sources'] and random.random() < 0.5:
+            fat_food = random.choice(categories['fat_sources'])
+            fat_portion = (fat_gap / fat_food.fat) * 100 if fat_food.fat > 0 else 0
+            if fat_portion > 5: # 至少需要5g以上
+                combo_items.append({'food': fat_food, 'portion': round(fat_portion / 5) * 5})
+        # 或者，有25%几率加个水果
+        elif categories['fruits'] and random.random() < 0.25:
+             fruit_food = random.choice(categories['fruits'])
+             fruit_portion = random.choice([80, 100, 120, 150])
+             combo_items.append({'food': fruit_food, 'portion': fruit_portion})
+
+        return self._format_combo(combo_items)
+
+    # _get_dynamic_macro_ratios, _score_combo, _format_combo 方法与V3.0版本相同，无需修改
+    # (此处为完整性再次提供)
+    def _get_dynamic_macro_ratios(self, sport_record):
+        if not sport_record:
+            return self.DEFAULT_MACRO_RATIOS
+        sport_type = sport_record.sport_type.lower()
+        strength_keywords = ['力量', '举重', '器械', '卧推', '深蹲', '硬拉', '推举', '弯举', '划船', '引体向上', '俯卧撑', '哑铃', '杠铃', '抗阻', '增肌', '塑形']
+        endurance_keywords = ['跑', '游泳', '单车', '自行车', '椭圆机', '有氧', '操', '跳绳', '登山', '快走', '慢跑', '长跑', '马拉松', '划船机', '动感单车']
+        mixed_keywords = ['hiit', 'crossfit', '交叉训练', '循环训练', '球类', '篮球', '足球', '羽毛球', '网球', '拳击', '搏击', '武术', '舞蹈']
+        if any(keyword in sport_type for keyword in strength_keywords): return self.STRENGTH_MACRO_RATIOS
+        if any(keyword in sport_type for keyword in mixed_keywords): return self.MIXED_MACRO_RATIOS
+        if any(keyword in sport_type for keyword in endurance_keywords): return self.ENDURANCE_MACRO_RATIOS
+        return self.DEFAULT_MACRO_RATIOS
+
+    def _score_combo(self, combo, target_calories, macro_ratios):
+        calories_diff = abs(combo['total_calories'] - target_calories)
+        calorie_score = max(0, 1 - (calories_diff / target_calories))
+        total_p = combo['total_macros']['protein']
+        total_c = combo['total_macros']['carbs']
+        total_f = combo['total_macros']['fat']
+        cals_from_macros = (total_p * 4) + (total_c * 4) + (total_f * 9)
+        if cals_from_macros == 0: return 0
+        ratio_p, ratio_c, ratio_f = (total_p * 4) / cals_from_macros, (total_c * 4) / cals_from_macros, (total_f * 9) / cals_from_macros
+        protein_err, carbs_err, fat_err = abs(ratio_p - macro_ratios['protein']), abs(ratio_c - macro_ratios['carbs']), abs(ratio_f - macro_ratios['fat'])
+        macro_score = max(0, 1 - (protein_err + carbs_err + fat_err) / 2)
+        return calorie_score * 0.6 + macro_score * 0.4
+
+    def _format_combo(self, items):
+        total_calories, total_protein, total_fat, total_carbs = 0, 0, 0, 0
+        formatted_items = []
+        for item in items:
+            food, portion = item['food'], item['portion']
+            factor = portion / 100.0
+            item_calories, item_protein, item_fat, item_carbs = round(food.calories_per_100g * factor), round(food.protein * factor, 1), round(food.fat * factor, 1), round(food.carbohydrates * factor, 1)
+            total_calories, total_protein, total_fat, total_carbs = total_calories + item_calories, total_protein + item_protein, total_fat + item_fat, total_carbs + item_carbs
+            formatted_items.append({"food_id": food.id, "name": food.name, "portion_g": portion, "calories": item_calories, "macros": {"protein": item_protein, "fat": item_fat, "carbs": item_carbs,}})
+        return {"title": "智能营养套餐", "total_calories": total_calories, "total_macros": {"protein": round(total_protein, 1), "fat": round(total_fat, 1), "carbs": round(total_carbs, 1),}, "items": formatted_items}

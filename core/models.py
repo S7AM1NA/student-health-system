@@ -43,8 +43,14 @@ class SportRecord(models.Model):
 
 # 4. 食物库模型 (供饮食记录参考)
 class FoodItem(models.Model):
-    name = models.CharField(max_length=100, unique=True, verbose_name="食物名称")
+    name = models.CharField(max_length=100, verbose_name="食物名称")
     calories_per_100g = models.FloatField(verbose_name="每100g卡路里(大卡)")
+    product_code = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name="产品代码")
+
+    # 营养素字段
+    protein = models.FloatField(verbose_name="蛋白质(克)", null=True, blank=True)
+    fat = models.FloatField(verbose_name="脂肪(克)", null=True, blank=True)
+    carbohydrates = models.FloatField(verbose_name="碳水化合物(克)", null=True, blank=True)
     
     def __str__(self):
         return self.name

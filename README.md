@@ -4,7 +4,7 @@ BUAA_2025
 
 ## 项目当前进度
 
-**必做项目已完成**。
+**必做项目已完成，进入选做开发阶段。**
 
 *   ✅ **项目初始化**: 已创建Django项目及核心`core`应用。
 *   ✅ **数据库模型**: 已定义 `CustomUser`, `SleepRecord`, `SportRecord`, `FoodItem`, `Meal`, `MealItem` 模型并完成首次数据库迁移。
@@ -12,6 +12,7 @@ BUAA_2025
 *   ✅ **基础用户API**: 已完成用户**注册、登录、注销**的后端API接口，可供前端调用。
 *   ✅ **健康记录API**: 已完成用户增删改查**睡眠、运动、饮食**的后端API接口，可供前端调用。
 *   ✅ **前端基本骨架**: 前端已完成开发目录、页脚、主看板以及各个健康信息的页面。并已与后端API对接。
+*   ✅ **选做内容API**: 已完成健康目标、健康异常预警和根据运动情况饮食推荐的后端API接口。
 
 ## 技术栈
 
@@ -22,51 +23,69 @@ BUAA_2025
 
 ## 环境配置与启动 
 
-1.  **克隆仓库**
-    
-    ```bash
-    git clone https://github.com/Cl0udTide/student-health-system.git
-    cd student-health-system
-    ```
-    
-2.  **创建并激活Python虚拟环境**
-    ```bash
-    # 创建虚拟环境
-    python -m venv .venv
-    
-    # 激活虚拟环境
-    # Windows (PowerShell):
-    .\.venv\Scripts\activate
-    # macOS / Linux:
-    source .venv/bin/activate
-    ```
-    *激活后，命令行前端会出现 `(venv)` 标识。*
+1. **克隆仓库**
 
-3.  **安装项目依赖**
-    ```bash
-    pip install -r requirements.txt
-    ```
+   ```bash
+   git clone https://github.com/Cl0udTide/student-health-system.git
+   cd student-health-system
+   ```
 
-4.  **应用数据库迁移**
-    此步骤会根据已有的模型文件在本地创建`db.sqlite3`数据库文件。
-    ```bash
-    python manage.py migrate
-    ```
+2. **创建并激活Python虚拟环境**
+   ```bash
+   # 创建虚拟环境
+   python -m venv .venv
+   
+   # 激活虚拟环境
+   # Windows (PowerShell):
+   .\.venv\Scripts\activate
+   # macOS / Linux:
+   source .venv/bin/activate
+   ```
+   *激活后，命令行前端会出现 `(venv)` 标识。*
 
-5.  **启动开发服务器**
-    ```bash
-    python manage.py runserver
-    ```
-    现在，你可以通过浏览器访问 `http://127.0.0.1:8000/` 来查看项目了。
+3. **安装项目依赖**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-6.  **创建本地管理员账号**
-    
-    ```
-    python manage.py createsuperuser
-    ```
-    
-    
-    现在，可以访问 `http://127.0.0.1:8000/admin/` 后台管理界面查看和管理数据。
+4. **应用数据库迁移**
+   此步骤会根据已有的模型文件在本地创建`db.sqlite3`数据库文件。
+
+   ```bash
+   python manage.py migrate
+   ```
+
+5. **导入开源营养库数据**
+
+   - **操作要求：** 在运行新命令前，建议先清空 `FoodItem` 表以保证数据一致性。然后**运行导入命令**。
+
+   ```bash
+   # 1. (可选但推荐) 进入Django Shell清空数据
+   # python manage.py shell
+   # >>> from core.models import FoodItem
+   # >>> FoodItem.objects.all().delete()
+   # >>> exit()
+   
+   # 2. 运行导入命令
+   python manage.py import_food_data data
+   ```
+
+6. **启动开发服务器**
+
+   ```bash
+   python manage.py runserver
+   ```
+   现在，你可以通过浏览器访问 `http://127.0.0.1:8000/` 来查看项目了。
+
+7. **创建本地管理员账号**
+
+   ```
+   python manage.py createsuperuser
+   ```
+
+
+   现在，可以访问 `http://127.0.0.1:8000/admin/` 后台管理界面查看和管理数据。
+
 ---
 
 ## 数据库模型
@@ -745,6 +764,109 @@ BUAA_2025
   []
   ```
 
+### **14. 动态智能饮食推荐 (Smart Diet Recommendation)**
+
+- **URL**: /api/recommendations/diet/
+
+- **Method**: GET
+
+- **Authentication**: 需要 (Authentication Required)
+
+- **Query Parameters**:
+
+  - date - **必需**。查询的日期，格式为 YYYY-MM-DD。
+  - meal_type - **必需**。要推荐的餐次类型，可选值为 breakfast, lunch, dinner, snack。
+
+- **核心功能**:
+  这是系统最智能的API之一。它会**综合分析用户当日的运动情况**，动态计算出个性化的总热量需求和宏量营养素（蛋白质、碳水、脂肪）配比。随后，算法会模拟营养师的配餐思路，**优先保证荤素搭配和套餐结构的合理性**，从本地高质量的食物库中构建出多组既营养均衡又符合饮食习惯的推荐套餐。
+
+- **Success Response (200 OK)**:
+
+  ```json
+  {
+      "status": "success",
+      "message": "根据您今天的运动情况，为您生成了lunch的营养推荐",
+      "recommendation_context": {
+          "dynamic_target_calories": 2250,
+          "bmr_estimated": 1800,
+          "calories_burned_from_sport": 450,
+          "calories_eaten_today": 500,
+          "target_meal_calories": 700,
+          "target_macros_grams": {
+              "protein": 70,
+              "carbs": 70,
+              "fat": 16
+          },
+          "used_macro_ratios": {
+              "carbs": 0.4,
+              "protein": 0.4,
+              "fat": 0.2
+          }
+      },
+      "recommendations": [
+          {
+              "title": "智能营养套餐",
+              "total_calories": 695,
+              "total_macros": {
+                  "protein": 68.5,
+                  "fat": 15.2,
+                  "carbs": 69.0
+              },
+              "items": [
+                  {
+                      "food_id": 15,
+                      "name": "牛肉（后腿）",
+                      "portion_g": 200,
+                      "calories": 212,
+                      "macros": { "protein": 41.8, "fat": 4.0, "carbs": 2.2 }
+                  },
+                  {
+                      "food_id": 22,
+                      "name": "糙米饭",
+                      "portion_g": 150,
+                      "calories": 167,
+                      "macros": { "protein": 4.1, "fat": 1.2, "carbs": 34.8 }
+                  },
+                  {
+                      "food_id": 31,
+                      "name": "西兰花",
+                      "portion_g": 200,
+                      "calories": 68,
+                      "macros": { "protein": 5.8, "fat": 0.8, "carbs": 13.2 }
+                  }
+              ]
+          }
+      ]
+  }
+  ```
+
+- **字段说明**:
+
+  - recommendation_context: 提供了本次推荐的计算依据，非常适合调试和展示。
+    - dynamic_target_calories: **动态计算**的当日总热量目标 (BMR + 运动消耗)。
+    - calories_burned_from_sport: 当日运动消耗的热量。
+    - target_macros_grams: **本餐的宏量营养素目标（克）**。
+    - used_macro_ratios: **根据运动类型动态选择的营养素配比**（例如，力量训练后会使用高蛋白配比）。
+  - recommendations: 一个包含多个推荐套餐的数组。
+    - total_macros: 该套餐实际包含的总宏量营养素。
+    - items: 组成套餐的食物列表，**现在每个食物条目也包含了独立的宏量营养素信息 macros**。
+
+- **特殊情况响应 (Info)**:
+
+  - 当用户当天热量摄入已基本达标时:
+
+  ```json
+  {
+      "status": "info",
+      "message": "今日热量已基本达标",
+      "recommendations": []
+  }
+  ```
+
+- **Error Responses**:
+
+  - 400 Bad Request: 当 date 或 meal_type 参数缺失或无效时。
+  - 500 Internal Server Error: 当本地食物库数据不足，无法构建合理套餐时。
 ---
 
 ## 当前（必做阶段）开发任务
@@ -753,6 +875,11 @@ BUAA_2025
 
 1.  为用户设定个人健康目标提供前端支持，在主看板中展示目标完成进度。 
 2.  当用户连续多天睡眠不足或运动量过低时，系统自动弹出提醒。 
+3.  调用后端API接口，展示智能推荐的饮食套餐。
+
+**后端：**
+
+1. 为好友功能提供API支持。
 
 ---
 
