@@ -88,3 +88,37 @@ class MealItem(models.Model):
 
     def __str__(self):
         return f"{self.portion}克 {self.food_item.name}"
+    
+# 7. 用户健康目标模型
+class UserHealthGoal(models.Model):
+    """
+    存储用户设定的每日健康目标。
+    通过 OneToOneField 与 CustomUser 关联，确保每个用户只有一套目标。
+    """
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='health_goal', verbose_name="关联用户")
+    
+    # 睡眠目标 (小时)
+    target_sleep_duration = models.FloatField(
+        verbose_name="目标睡眠时长(小时)", 
+        null=True, blank=True,
+        help_text="例如: 7.5"
+    )
+    
+    # 运动目标 (时长和热量)
+    target_sport_duration_minutes = models.PositiveIntegerField(
+        verbose_name="目标运动时长(分钟)",
+        null=True, blank=True
+    )
+    target_sport_calories = models.PositiveIntegerField(
+        verbose_name="目标运动消耗热量(大卡)",
+        null=True, blank=True
+    )
+
+    # 饮食目标 (摄入热量)
+    target_diet_calories = models.PositiveIntegerField(
+        verbose_name="目标饮食摄入热量(大卡)",
+        null=True, blank=True
+    )
+
+    def __str__(self):
+        return f"{self.user.username}的健康目标"

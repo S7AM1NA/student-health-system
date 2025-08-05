@@ -1,6 +1,6 @@
 # core/serializers.py
 from rest_framework import serializers
-from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser
+from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser, UserHealthGoal
 
 class SleepRecordSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,3 +59,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # 用户名在个人档案更新时不应被修改
         read_only_fields = ['username']
 
+class UserHealthGoalSerializer(serializers.ModelSerializer):
+    """
+    用于读取和更新用户的个人健康目标。
+    """
+    class Meta:
+        model = UserHealthGoal
+        # 前端可以提交这四个字段的任意组合来进行更新
+        fields = [
+            'id', 'user', 
+            'target_sleep_duration', 
+            'target_sport_duration_minutes', 
+            'target_sport_calories',
+            'target_diet_calories'
+        ]
+        # user 字段是自动关联的，不应由前端提交
+        read_only_fields = ['id', 'user']

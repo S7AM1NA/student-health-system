@@ -21,8 +21,10 @@ from .views import (
     MealViewSet, 
     MealItemViewSet,
     ProfileView,
+    UserHealthGoalView,
     WeeklySleepReportView,
     HealthReportView,
+    HealthAlertView
 )
 
 from django.conf import settings
@@ -67,19 +69,17 @@ urlpatterns = [
     path('api/login/', login_view, name='api-login'),
     path('api/logout/', logout_view, name='api-logout'),
     
-    # 2. 看板数据和个人档案的 API
+    # 2. 看板数据和个人档案以及个人目标的 API
     path('api/dashboard/<str:date_str>/', DashboardView.as_view(), name='api-dashboard'),
     path('api/profile/', ProfileView.as_view(), name='api-profile'),
+    path('api/goals/', UserHealthGoalView.as_view(), name='api-health-goals'),
     
-    # 功能1：周度睡眠报告 API
-    # URL 示例: /api/reports/weekly-sleep/2023-10-27/
+    # 3. 报告与预警 API
     path('api/reports/weekly-sleep/<str:end_date_str>/', WeeklySleepReportView.as_view(), name='weekly-sleep-report'),
-    # 功能2：周期性健康报告 API
-    # URL 示例: /api/reports/health-summary/?start_date=2023-10-01&end_date=2023-10-27
     path('api/reports/health-summary/', HealthReportView.as_view(), name='health-report'),
+    path('api/alerts/check/', HealthAlertView.as_view(), name='api-health-alerts'),
 
-    # 3. 所有由 ViewSet 自动生成的 CRUD API
-    #    这会自动创建如 /api/sleep/, /api/sports/ 等一系列接口
+    # 4. 所有由 ViewSet 自动生成的 CRUD API
     path('api/', include(router.urls)),
 ]
 

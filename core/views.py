@@ -6,14 +6,15 @@ from django.views.decorators.csrf import csrf_exempt # 方便开发阶段调试A
 from rest_framework import viewsets, permissions # 导入 permissions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from .models import CustomUser, SleepRecord, SportRecord, FoodItem, Meal, MealItem
+from .models import CustomUser, SleepRecord, SportRecord, FoodItem, Meal, MealItem, UserHealthGoal
 from .serializers import (
     SleepRecordSerializer, 
     SportRecordSerializer, 
     FoodItemSerializer, 
     MealSerializer, 
     MealItemSerializer,
-    UserProfileSerializer
+    UserProfileSerializer,
+    UserHealthGoalSerializer
 )
 
 from django.shortcuts import render, redirect
@@ -291,60 +292,70 @@ class DashboardView(APIView):
         except ValueError:
             return Response({'status': 'error', 'message': '日期格式错误，请使用YYYY-MM-DD'}, status=400)
 
-        # 2. 初始化数据结构
+        # 2. 初始化数据结构 (保持不变)
         response_data = {
             "date": date_str,
-            "sleep": {"record_exists": False},
-            "sports": {"record_exists": False},
-            "diet": {"record_exists": False},
+            "sleep": {"record_exists": False, "duration_hours": 0},
+            "sports": {"record_exists": False, "total_duration_minutes": 0, "total_calories_burned": 0},
+            "diet": {"record_exists": False, "total_calories_eaten": 0},
         }
         
-        # --- 数据聚合 ---
-        
-        # 3. 聚合睡眠数据
-        # 假设睡眠记录是“跨天”的，我们找起床时间是目标日期的记录
-        sleep_record = SleepRecord.objects.filter(
-            user=user, 
-            wakeup_time__date=target_date
-        ).first()
-
+        # --- 3, 4, 5. 数据聚合 (逻辑微调，确保即使没记录也有默认值) ---
+        # 睡眠
+        sleep_record = SleepRecord.objects.filter(user=user, wakeup_time__date=target_date).first()
         if sleep_record:
-            duration_total_seconds = sleep_record.duration.total_seconds()
             response_data['sleep'] = {
-                "duration_hours": round(duration_total_seconds / 3600, 1),
-                "sleep_time": sleep_record.sleep_time.isoformat(),
-                "wakeup_time": sleep_record.wakeup_time.isoformat(),
+                "duration_hours": round(sleep_record.duration.total_seconds() / 3600, 1),
+                "sleep_time": sleep_record.sleep_time.isoformat(), "wakeup_time": sleep_record.wakeup_time.isoformat(),
                 "record_exists": True
             }
 
-        # 4. 聚合运动数据
+        # 运动
         sports_records = SportRecord.objects.filter(user=user, record_date=target_date)
         if sports_records.exists():
             sports_summary = sports_records.aggregate(
-                total_calories_burned=Sum('calories_burned'),
-                total_duration_minutes=Sum('duration_minutes'),
-                count=Count('id')
+                total_calories_burned=Sum('calories_burned'), total_duration_minutes=Sum('duration_minutes'), count=Count('id')
             )
             response_data['sports'] = {
                 "total_calories_burned": sports_summary.get('total_calories_burned') or 0,
                 "total_duration_minutes": sports_summary.get('total_duration_minutes') or 0,
-                "count": sports_summary.get('count') or 0,
-                "record_exists": True
+                "count": sports_summary.get('count') or 0, "record_exists": True
             }
             
-        # 5. 聚合饮食数据
+        # 饮食
         meals = Meal.objects.filter(user=user, record_date=target_date)
         if meals.exists():
-            total_calories_eaten = sum(meal.total_calories for meal in meals)
             response_data['diet'] = {
-                "total_calories_eaten": total_calories_eaten,
+                "total_calories_eaten": sum(meal.total_calories for meal in meals),
                 "record_exists": True
             }
 
-        # --- 健康建议生成 (简化版BMR) ---
-        # 简化版：假设基础代谢率 (BMR) 是一个固定值，比如 1500 大卡。
-        # 真实项目中可以根据用户的性别、年龄、体重来计算。
-        BMR = 1500 
+        # --- 6. 【新增】获取健康目标并计算完成度 ---
+        goal, _ = UserHealthGoal.objects.get_or_create(user=user)
+        
+        def calculate_progress(actual, target):
+            if target and target > 0:
+                # 返回完成百分比，最高不超过100%，方便前端直接用作进度条
+                return min(round((actual / target) * 100), 100)
+            return 0 # 如果没有设置目标，则进度为0
+
+        response_data['goals'] = {
+            "target_sleep_duration": goal.target_sleep_duration,
+            "progress_sleep_duration": calculate_progress(response_data['sleep']['duration_hours'], goal.target_sleep_duration),
+            
+            "target_sport_duration_minutes": goal.target_sport_duration_minutes,
+            "progress_sport_duration": calculate_progress(response_data['sports']['total_duration_minutes'], goal.target_sport_duration_minutes),
+
+            "target_sport_calories": goal.target_sport_calories,
+            "progress_sport_calories": calculate_progress(response_data['sports']['total_calories_burned'], goal.target_sport_calories),
+
+            "target_diet_calories": goal.target_diet_calories,
+            # 对于饮食，我们不封顶，以便用户看到是否超标
+            "progress_diet_calories": round((response_data['diet']['total_calories_eaten'] / goal.target_diet_calories) * 100) if goal.target_diet_calories else 0,
+        }
+
+        # --- 健康建议生成  ---
+        BMR = 1800 if self.request.user.gender == 'M' else 1500
         
         calories_in = response_data.get('diet', {}).get('total_calories_eaten', 0)
         calories_out = response_data.get('sports', {}).get('total_calories_burned', 0)
@@ -424,7 +435,37 @@ class ProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
+class UserHealthGoalView(APIView):
+    """
+    处理用户个人健康目标的读取(GET)和创建/更新(PUT)。
+    访问URL: /api/goals/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        处理 GET /api/goals/ 请求。
+        返回当前用户的健康目标，如果不存在则自动创建一个空的目标对象。
+        """
+        # get_or_create 是一个非常方便的方法，它能确保每个用户都有一个目标对象
+        goal, created = UserHealthGoal.objects.get_or_create(user=request.user)
+        serializer = UserHealthGoalSerializer(goal)
+        return Response(serializer.data)
+
+    def put(self, request):
+        """
+        处理 PUT /api/goals/ 请求。
+        用请求中的数据更新当前用户的健康目标。
+        """
+        goal, created = UserHealthGoal.objects.get_or_create(user=request.user)
+        # 使用 partial=True 允许部分更新，用户可以只修改一个目标，而不必提交所有字段
+        serializer = UserHealthGoalSerializer(goal, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
 class WeeklySleepReportView(APIView):
     """
     提供一周睡眠数据的 API。
@@ -708,3 +749,88 @@ class HealthReportView(APIView):
         mean = sum(data) / n
         variance = sum([(x - mean) ** 2 for x in data]) / (n-1)
         return variance ** 0.5
+    
+class HealthAlertView(APIView):
+    """
+    提供健康异常预警功能。
+    检查用户近期是否存在连续多天数据不佳的情况。
+    """
+    permission_classes = [IsAuthenticated]
+
+    # --- 可配置的预警阈值 ---
+    # 连续多少天不达标就触发预警
+    CONSECUTIVE_DAYS_THRESHOLD = 3 
+    # 睡眠不足的小时数阈值
+    INSUFFICIENT_SLEEP_THRESHOLD_HOURS = 7.0
+    # 运动量过低的卡路里阈值
+    LOW_ACTIVITY_CALORIES_THRESHOLD = 100 
+    # 我们检查过去多少天的数据
+    DAYS_TO_CHECK = 5 
+
+    def get(self, request):
+        """
+        处理 GET /api/alerts/check/ 请求。
+        返回一个包含所有当前触发的预警信息的列表。
+        """
+        user = request.user
+        today = timezone.now().date()
+        start_date = today - timedelta(days=self.DAYS_TO_CHECK - 1)
+        
+        alerts = []
+
+        # 1. 检查睡眠不足预警
+        sleep_records = SleepRecord.objects.filter(
+            user=user, 
+            wakeup_time__date__range=[start_date, today]
+        )
+        # 将记录按日期分组，方便查找
+        sleep_by_date = {
+            timezone.localtime(r.wakeup_time).date(): r.duration.total_seconds() / 3600
+            for r in sleep_records
+        }
+
+        consecutive_poor_sleep_days = 0
+        for i in range(self.DAYS_TO_CHECK):
+            check_date = today - timedelta(days=i)
+            # 如果某天有记录且睡眠时间少于阈值
+            if check_date in sleep_by_date and sleep_by_date[check_date] < self.INSUFFICIENT_SLEEP_THRESHOLD_HOURS:
+                consecutive_poor_sleep_days += 1
+            else:
+                # 一旦不满足条件，连续天数就中断，重置计数器
+                consecutive_poor_sleep_days = 0 
+            
+            # 如果达到连续天数阈值，添加预警并停止检查
+            if consecutive_poor_sleep_days >= self.CONSECUTIVE_DAYS_THRESHOLD:
+                alerts.append({
+                    "alert_code": "POOR_SLEEP_STREAK",
+                    "message": f"您已连续{self.CONSECUTIVE_DAYS_THRESHOLD}天睡眠不足{self.INSUFFICIENT_SLEEP_THRESHOLD_HOURS}小时，请注意保证充足的休息。"
+                })
+                break
+
+        # 2. 检查运动量过低预警
+        sport_records = SportRecord.objects.filter(
+            user=user, 
+            record_date__range=[start_date, today]
+        )
+        # 按天聚合消耗的卡路里
+        calories_by_date = {}
+        for r in sport_records:
+            calories_by_date[r.record_date] = calories_by_date.get(r.record_date, 0) + r.calories_burned
+
+        consecutive_low_activity_days = 0
+        for i in range(self.DAYS_TO_CHECK):
+            check_date = today - timedelta(days=i)
+            # 如果某天记录的总卡路里低于阈值（包括没有记录的情况，视为0）
+            if calories_by_date.get(check_date, 0) < self.LOW_ACTIVITY_CALORIES_THRESHOLD:
+                consecutive_low_activity_days += 1
+            else:
+                consecutive_low_activity_days = 0
+            
+            if consecutive_low_activity_days >= self.CONSECUTIVE_DAYS_THRESHOLD:
+                alerts.append({
+                    "alert_code": "LOW_ACTIVITY_STREAK",
+                    "message": f"您已连续{self.CONSECUTIVE_DAYS_THRESHOLD}天运动量过低，建议增加适度锻炼来保持活力。"
+                })
+                break
+        
+        return Response(alerts)
