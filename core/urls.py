@@ -25,11 +25,15 @@ from .views import (
     WeeklySleepReportView,
     HealthReportView,
     HealthAlertView,
-    DietRecommendationView
+    DietRecommendationView,
+    FriendshipViewSet,
+    HealthFeedView,
+    CommentViewSet,
 )
 
 from django.conf import settings
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.shortcuts import render
 
 router = DefaultRouter()
 router.register(r'sleep', SleepRecordViewSet, basename='sleeprecord')
@@ -37,6 +41,8 @@ router.register(r'sports', SportRecordViewSet, basename='sportrecord')
 router.register(r'foods', FoodItemViewSet, basename='fooditem')
 router.register(r'meals', MealViewSet, basename='meal')
 router.register(r'meal-items', MealItemViewSet, basename='mealitem')
+router.register(r'friendships', FriendshipViewSet, basename='friendship')
+router.register(r'comments', CommentViewSet, basename='comment')
 
 urlpatterns = [
 # ==========================================================
@@ -81,7 +87,10 @@ urlpatterns = [
     path('api/alerts/check/', HealthAlertView.as_view(), name='api-health-alerts'),
     path('api/recommendations/diet/', DietRecommendationView.as_view(), name='api-diet-recommendation'),
 
-    # 4. 所有由 ViewSet 自动生成的 CRUD API
+    # 4. 好友健康动态 API
+    path('api/feed/', HealthFeedView.as_view(), name='api-health-feed'),
+
+    # 5. 所有由 ViewSet 自动生成的 CRUD API
     path('api/', include(router.urls)),
 ]
 

@@ -3,10 +3,13 @@ from django.http import JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_exempt # 方便开发阶段调试API
 
-from rest_framework import viewsets, permissions # 导入 permissions
+from rest_framework import viewsets, permissions
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from .models import CustomUser, SleepRecord, SportRecord, FoodItem, Meal, MealItem, UserHealthGoal
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from .models import CustomUser, SleepRecord, SportRecord, FoodItem, Meal, MealItem, UserHealthGoal, Friendship, Comment, ContentType
 from .serializers import (
     SleepRecordSerializer, 
     SportRecordSerializer, 
@@ -14,11 +17,76 @@ from .serializers import (
     MealSerializer, 
     MealItemSerializer,
     UserProfileSerializer,
-    UserHealthGoalSerializer
+    UserHealthGoalSerializer,
+    FriendshipSerializer,
+    CommentSerializer
 )
 
+from django.db.models import Q
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
+from datetime import datetime, time, timedelta
+from django.db.models import Sum, Count, Avg, Min, Max
+from django.utils import timezone
+from collections import Counter
+
+# ==========================================================
+# 【新增】外部食物数据服务
+# ==========================================================
+class OpenFoodFactsService:
+    """
+    一个专门用于从 Open Food Facts API 获取数据并缓存到本地数据库的服务。
+    """
+    BASE_URL = "https://world.openfoodfacts.org/cgi/search.pl"
+    
+    def fetch_and_cache_foods(self, search_term, page_size=20):
+        """
+        根据搜索词从 API 获取食物数据，并将其存储或更新到本地 FoodItem 模型中。
+        """
+        params = {
+            "search_terms": search_term,
+            "search_simple": 1,
+            "action": "process",
+            "json": 1,
+            "page_size": page_size,
+            # 添加筛选条件，我们只关心有完整营养成分的食物
+            "tagtype_0": "states",
+            "tag_contains_0": "contains",
+            "tag_0": "en:nutrition-facts-completed"
+        }
+
+        try:
+            # 设置10秒超时，防止外部API响应过慢影响我们的服务
+            response = requests.get(self.BASE_URL, params=params, timeout=10)
+            response.raise_for_status() # 如果请求失败 (例如 404, 500), 会抛出异常
+            data = response.json()
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            # 如果API出错，打印错误日志并安全退出，不影响后续逻辑
+            print(f"从Open Food Facts获取'{search_term}'数据时出错: {e}")
+            return
+
+        products = data.get("products", [])
+        
+        for product in products:
+            # 确保产品包含我们需要的所有核心数据
+            code = product.get('code')
+            name = product.get('product_name')
+            # API以千焦(kj)和千卡(kcal)两种单位提供能量，我们使用kcal
+            calories = product.get('nutriments', {}).get('energy-kcal_100g')
+
+            if all([code, name, calories]):
+                # 使用 update_or_create 方法来高效地处理缓存：
+                # 它会根据 product_code 查找。如果找到，则更新记录；如果没找到，则创建新记录。
+                # 这完美地避免了数据重复。
+                FoodItem.objects.update_or_create(
+                    product_code=code,
+                    defaults={
+                        'name': name,
+                        'calories_per_100g': float(calories)
+                    }
+                )
 
 # ==========================================================
 # 【新增】外部食物数据服务
@@ -188,6 +256,7 @@ def logout_view(request):
         return JsonResponse({'status': 'success', 'message': '已成功注销'})
     return JsonResponse({'status': 'error', 'message': '仅支持POST请求'}, status=405)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class SleepRecordViewSet(viewsets.ModelViewSet):
     serializer_class = SleepRecordSerializer
     permission_classes = [IsAuthenticated]
@@ -220,6 +289,7 @@ class SleepRecordViewSet(viewsets.ModelViewSet):
         else:
             return Response({"record_exists": False, "record_id": None})
 
+@method_decorator(csrf_exempt, name='dispatch')
 class SportRecordViewSet(viewsets.ModelViewSet):
     serializer_class = SportRecordSerializer
     permission_classes = [IsAuthenticated]
@@ -253,6 +323,7 @@ class SportRecordViewSet(viewsets.ModelViewSet):
         else:
             return Response({"record_exists": False, "record_id": None})
 
+@method_decorator(csrf_exempt, name='dispatch')
 class FoodItemViewSet(viewsets.ReadOnlyModelViewSet):
     """
     提供一个只读的食物库列表接口
@@ -261,7 +332,7 @@ class FoodItemViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = FoodItemSerializer
     permission_classes = [permissions.IsAuthenticated] # 登录用户才能查看食物库
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class MealViewSet(viewsets.ModelViewSet):
     serializer_class = MealSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -312,7 +383,7 @@ class MealViewSet(viewsets.ModelViewSet):
         else:
             return Response({"record_exists": False, "record_id": None})
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class MealItemViewSet(viewsets.ModelViewSet):
     """
     管理一餐中具体“餐品”的增删改查
@@ -324,19 +395,7 @@ class MealItemViewSet(viewsets.ModelViewSet):
         # 确保用户只能管理自己餐次下的餐品
         return MealItem.objects.filter(meal__user=self.request.user)
 
-    # 注意：这里没有 perform_create，因为前端在创建 MealItem 时，
-    # 会在POST请求的数据中明确指定它属于哪个 meal (meal_id)。
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from datetime import datetime, time, timedelta
-from django.db.models import Sum, Count, Avg, Min, Max
-from django.utils import timezone
-from collections import Counter
-
-# ... 导入你所有的模型 ...
-from .models import SleepRecord, SportRecord, Meal
-
+@method_decorator(csrf_exempt, name='dispatch')
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -467,7 +526,8 @@ class DashboardView(APIView):
         }
         
         return Response(final_response)
-    
+
+@method_decorator(csrf_exempt, name='dispatch')    
 class ProfileView(APIView):
     """
     处理用户个人档案的读取(GET)和更新(PUT)。
@@ -492,6 +552,7 @@ class ProfileView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UserHealthGoalView(APIView):
     """
     处理用户个人健康目标的读取(GET)和创建/更新(PUT)。
@@ -522,6 +583,7 @@ class UserHealthGoalView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class WeeklySleepReportView(APIView):
     """
     提供一周睡眠数据的 API。
@@ -577,6 +639,7 @@ class WeeklySleepReportView(APIView):
             "data": report_data
         })
 
+@method_decorator(csrf_exempt, name='dispatch')
 class HealthReportView(APIView):
     """
     生成指定时间周期内的综合、详细的健康报告。
@@ -805,7 +868,8 @@ class HealthReportView(APIView):
         mean = sum(data) / n
         variance = sum([(x - mean) ** 2 for x in data]) / (n-1)
         return variance ** 0.5
-    
+
+@method_decorator(csrf_exempt, name='dispatch')    
 class HealthAlertView(APIView):
     """
     提供健康异常预警功能。
@@ -890,8 +954,8 @@ class HealthAlertView(APIView):
                 break
         
         return Response(alerts)
-    
-# 智能饮食推荐视图
+      
+@method_decorator(csrf_exempt, name='dispatch')
 class DietRecommendationView(APIView):
     """
     V4.0: 模拟大厨配餐逻辑，不仅考虑营养，更注重荤素搭配和套餐的合理性。
@@ -1098,3 +1162,168 @@ class DietRecommendationView(APIView):
             total_calories, total_protein, total_fat, total_carbs = total_calories + item_calories, total_protein + item_protein, total_fat + item_fat, total_carbs + item_carbs
             formatted_items.append({"food_id": food.id, "name": food.name, "portion_g": portion, "calories": item_calories, "macros": {"protein": item_protein, "fat": item_fat, "carbs": item_carbs,}})
         return {"title": "智能营养套餐", "total_calories": total_calories, "total_macros": {"protein": round(total_protein, 1), "fat": round(total_fat, 1), "carbs": round(total_carbs, 1),}, "items": formatted_items}
+
+# ==========================================================
+# 【新增】社交功能 API 视图
+# ==========================================================
+
+@method_decorator(csrf_exempt, name='dispatch')
+class FriendshipViewSet(viewsets.ModelViewSet):
+    """
+    管理好友关系、请求和授权的 API。
+    """
+    serializer_class = FriendshipSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # 返回所有与当前用户相关的好友关系（我发出的或我收到的）
+        return Friendship.objects.filter(Q(from_user=self.request.user) | Q(to_user=self.request.user))
+
+    def perform_create(self, serializer):
+        # 创建好友请求
+        to_user = serializer.validated_data.get('to_user')
+        if to_user == self.request.user:
+            raise ValidationError("你不能添加自己为好友。")
+        serializer.save(from_user=self.request.user, status=Friendship.STATUS_PENDING)
+
+    @action(detail=True, methods=['put'])
+    def accept(self, request, pk=None):
+        # 接受好友请求
+        friendship = self.get_object()
+        if friendship.to_user != request.user:
+            raise PermissionDenied("你没有权限接受此好友请求。")
+        friendship.status = Friendship.STATUS_ACCEPTED
+        friendship.save()
+        return Response(FriendshipSerializer(friendship).data)
+
+    @action(detail=True, methods=['put'])
+    def reject(self, request, pk=None):
+        # 拒绝好友请求
+        friendship = self.get_object()
+        if friendship.to_user != request.user:
+            raise PermissionDenied("你没有权限拒绝此好友请求。")
+        friendship.status = Friendship.STATUS_REJECTED
+        friendship.save()
+        return Response(FriendshipSerializer(friendship).data)
+
+    @action(detail=True, methods=['put'], url_path='set-permission')
+    def set_permission(self, request, pk=None):
+        # 设置好友的查看权限
+        friendship = self.get_object()
+        user = request.user
+        can_view = request.data.get('can_view')
+        if not isinstance(can_view, bool):
+            raise ValidationError({"can_view": "此字段必须是布尔值 (true/false)。"})
+
+        if user == friendship.from_user:
+            # 当前用户是请求发起者，正在设置自己的动态是否能被 to_user 查看
+            friendship.from_user_can_be_viewed = can_view
+        elif user == friendship.to_user:
+            # 当前用户是请求接收者，正在设置自己的动态是否能被 from_user 查看
+            friendship.to_user_can_be_viewed = can_view
+        else:
+            raise PermissionDenied("你没有权限修改此好友关系的权限。")
+            
+        friendship.save()
+        return Response(FriendshipSerializer(friendship).data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class HealthFeedView(APIView):
+    """
+    获取已授权好友的健康动态信息流 (Feed)。
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # 1. 查询所有授权我查看他们动态的好友ID
+        authorized_by_tousers = Friendship.objects.filter(
+            from_user=user, status='accepted', to_user_can_be_viewed=True
+        ).values_list('to_user_id', flat=True)
+
+        authorized_by_fromusers = Friendship.objects.filter(
+            to_user=user, status='accepted', from_user_can_be_viewed=True
+        ).values_list('from_user_id', flat=True)
+
+        authorized_friend_ids = list(authorized_by_tousers) + list(authorized_by_fromusers)
+
+        if not authorized_friend_ids:
+            return Response([])
+
+        # 2. 获取这些好友最近7天的各类记录
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        sleeps = SleepRecord.objects.filter(user_id__in=authorized_friend_ids, wakeup_time__gte=seven_days_ago)
+        sports = SportRecord.objects.filter(user_id__in=authorized_friend_ids, record_date__gte=seven_days_ago.date())
+        meals = Meal.objects.filter(user_id__in=authorized_friend_ids, record_date__gte=seven_days_ago.date())
+
+        # 3. 将不同类型的记录格式化为统一的 feed item 结构
+        feed_items = []
+        for record in sleeps:
+            feed_items.append({ 'type': 'sleep', 'user': {'id': record.user.id, 'username': record.user.username}, 'timestamp': record.wakeup_time, 'content': f"睡了 {round(record.duration.total_seconds() / 3600, 1)} 小时。", 'content_type_model': 'sleeprecord', 'object_id': record.id })
+        for record in sports:
+            feed_items.append({ 'type': 'sport', 'user': {'id': record.user.id, 'username': record.user.username}, 'timestamp': datetime.combine(record.record_date, time.min), 'content': f"进行了 {record.duration_minutes} 分钟的 {record.sport_type} 运动，消耗了 {record.calories_burned} 大卡。", 'content_type_model': 'sportrecord', 'object_id': record.id })
+        for meal in meals:
+            feed_items.append({ 'type': 'diet', 'user': {'id': meal.user.id, 'username': meal.user.username}, 'timestamp': datetime.combine(meal.record_date, time.min), 'content': f"记录了 {meal.get_meal_type_display()}，摄入 {meal.total_calories} 大卡。", 'content_type_model': 'meal', 'object_id': meal.id })
+
+        # 4. 按时间倒序排序
+        sorted_feed = sorted(feed_items, key=lambda item: item['timestamp'], reverse=True)
+        return Response(sorted_feed)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CommentViewSet(viewsets.ModelViewSet):
+    """
+    管理评论的 API。
+    """
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # 根据查询参数过滤评论
+        content_type_str = self.request.query_params.get('content_type_model')
+        object_id_str = self.request.query_params.get('object_id')
+        if not content_type_str or not object_id_str:
+            return Comment.objects.none()
+        try:
+            content_type = ContentType.objects.get(model=content_type_str.lower())
+            return Comment.objects.filter(content_type=content_type, object_id=object_id_str)
+        except (ContentType.DoesNotExist, ValueError):
+            return Comment.objects.none()
+
+    def perform_create(self, serializer):
+        # 权限检查：只有自己或已授权的好友才能评论
+        ctype = serializer.validated_data.get('content_type')
+        obj_id = serializer.validated_data.get('object_id')
+        content_object = ctype.get_object_for_this_type(pk=obj_id)
+        owner = content_object.user
+        commenter = self.request.user
+
+        if owner == commenter:
+            serializer.save(user=commenter)
+            return
+
+        try:
+            friendship = Friendship.objects.get(
+                (Q(from_user=owner, to_user=commenter) | Q(from_user=commenter, to_user=owner)),
+                status='accepted'
+            )
+        except Friendship.DoesNotExist:
+             raise PermissionDenied("你只能评论好友的动态。")
+
+        # 检查评论者是否有权查看动态所有者的动态
+        can_view = False
+        if friendship.from_user == owner and friendship.from_user_can_be_viewed:
+             can_view = True
+        elif friendship.to_user == owner and friendship.to_user_can_be_viewed:
+             can_view = True
+
+        if not can_view:
+            raise PermissionDenied("你没有权限评论此动态，因为对方未向你授权。")
+            
+        serializer.save(user=commenter)
+        
+    def perform_destroy(self, instance):
+        # 权限检查：只有评论作者才能删除
+        if instance.user != self.request.user:
+            raise PermissionDenied("你只能删除自己的评论。")
+        instance.delete()

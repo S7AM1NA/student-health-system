@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 # 1. 扩展默认用户模型，方便未来添加个人信息
 class CustomUser(AbstractUser):
@@ -128,3 +130,72 @@ class UserHealthGoal(models.Model):
 
     def __str__(self):
         return f"{self.user.username}的健康目标"
+    
+# 8. 好友关系模型
+class Friendship(models.Model):
+    """
+    管理用户间的好友关系，并包含双向授权。
+    """
+    STATUS_PENDING = 'pending'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_REJECTED = 'rejected'
+    
+    STATUS_CHOICES = [
+        (STATUS_PENDING, '待处理'),
+        (STATUS_ACCEPTED, '已接受'),
+        (STATUS_REJECTED, '已拒绝'),
+    ]
+
+    # from_user 是好友请求的发起者
+    from_user = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.CASCADE, 
+        related_name='friendship_requests_sent'
+    )
+    # to_user 是好友请求的接收者
+    to_user = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.CASCADE, 
+        related_name='friendship_requests_received'
+    )
+    
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING, verbose_name="关系状态")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    
+    # --- 授权控制字段 ---
+    # from_user_can_be_viewed: 标记 from_user (发起者) 是否授权 to_user (接收者) 查看自己的动态
+    from_user_can_be_viewed = models.BooleanField(default=True, verbose_name="发起者动态可被查看")
+    
+    # to_user_can_be_viewed: 标记 to_user (接收者) 是否授权 from_user (发起者) 查看自己的动态
+    to_user_can_be_viewed = models.BooleanField(default=True, verbose_name="接收者动态可被查看")
+
+    class Meta:
+        # 保证从A到B的好友请求是唯一的
+        unique_together = ('from_user', 'to_user')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.from_user} -> {self.to_user} ({self.get_status_display()})"
+
+# 9. 通用评论模型
+class Comment(models.Model):
+    """
+    一个通用的评论模型，可以附加到任何其他模型对象上。
+    """
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='comments', verbose_name="评论作者")
+    text = models.TextField(verbose_name="评论内容")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="评论时间")
+
+    # --- 通用外键三要素 ---
+    # 1. 关联到 ContentType，用于确定被评论的模型是哪一个（例如：SleepRecord 或 SportRecord）
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    # 2. 存储被评论记录的主键ID
+    object_id = models.PositiveIntegerField()
+    # 3. Django 通过这个虚拟字段，将上面两个字段组合成一个具体的模型实例
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.user} 对 {self.content_type.model} (ID: {self.object_id}) 的评论"

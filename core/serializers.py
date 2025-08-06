@@ -1,6 +1,6 @@
 # core/serializers.py
 from rest_framework import serializers
-from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser, UserHealthGoal
+from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser, UserHealthGoal, Friendship, Comment, ContentType
 
 class SleepRecordSerializer(serializers.ModelSerializer):
     class Meta:
@@ -75,3 +75,42 @@ class UserHealthGoalSerializer(serializers.ModelSerializer):
         ]
         # user 字段是自动关联的，不应由前端提交
         read_only_fields = ['id', 'user']
+
+class FriendshipSerializer(serializers.ModelSerializer):
+    """
+    序列化好友关系数据。
+    """
+    # 嵌套序列化，方便前端直接获取好友的用户名等信息
+    from_user_info = UserProfileSerializer(source='from_user', read_only=True)
+    to_user_info = UserProfileSerializer(source='to_user', read_only=True)
+
+    class Meta:
+        model = Friendship
+        fields = [
+            'id', 'from_user', 'to_user', 'status', 'created_at',
+            'from_user_info', 'to_user_info',
+            # 暴露授权字段给前端
+            'from_user_can_be_viewed', 'to_user_can_be_viewed'
+        ]
+        # 创建时，from_user 和 status 是自动设置的，前端只需提供 to_user 的ID
+        read_only_fields = ['from_user', 'status', 'created_at', 'from_user_info', 'to_user_info']
+
+class CommentSerializer(serializers.ModelSerializer):
+    """
+    序列化评论数据。
+    """
+    # 显示评论作者的用户名
+    author_username = serializers.CharField(source='user.username', read_only=True)
+    # 允许前端通过模型名称（如 'sleeprecord'）来指定评论对象，更方便
+    content_type = serializers.SlugRelatedField(
+        slug_field='model',
+        queryset=ContentType.objects.all()
+    )
+
+    class Meta:
+        model = Comment
+        fields = [
+            'id', 'author_username', 'text', 'created_at',
+            'content_type', 'object_id', 'user'
+        ]
+        read_only_fields = ['id', 'author_username', 'created_at', 'user']

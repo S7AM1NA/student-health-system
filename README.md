@@ -159,6 +159,29 @@ BUAA_2025
 | `target_sport_calories`         | `PositiveIntegerField` | 目标运动消耗热量(大卡) |                                  |
 | `target_diet_calories`          | `PositiveIntegerField` | 目标饮食摄入热量(大卡) |                                  |
 
+7.  **Friendship (好友关系)**
+    此表用于记录用户之间的好友关系状态和双向的动态查看授权。
+
+| 字段名 (Field)            | 数据类型 (Type) | 说明                   | 备注                                                         |
+| :------------------------ | :-------------- | :--------------------- | :----------------------------------------------------------- |
+| `from_user`               | `ForeignKey`    | 请求发起者             | 关联到`CustomUser`                                           |
+| `to_user`                 | `ForeignKey`    | 请求接收者             | 关联到`CustomUser`                                           |
+| `status`                  | `CharField`     | 关系状态               | 'pending' (待处理), 'accepted' (已接受), 'rejected' (已拒绝) |
+| `created_at`              | `DateTimeField` | 创建时间               | **后端自动生成**                                             |
+| `from_user_can_be_viewed` | `BooleanField`  | 发起者动态是否可被查看 | `from_user` 对 `to_user` 的授权，默认为 `true`               |
+| `to_user_can_be_viewed`   | `BooleanField`  | 接收者动态是否可被查看 | `to_user` 对 `from_user` 的授权，默认为 `true`               |
+
+8.  **Comment (评论)**
+    这是一个**通用评论表**，可以关联到任何可被评论的动态记录上（如睡眠、运动、饮食等）。
+
+| 字段名 (Field) | 数据类型 (Type)        | 说明         | 备注                                                         |
+| :------------- | :--------------------- | :----------- | :----------------------------------------------------------- |
+| `user`         | `ForeignKey`           | 评论作者     | 关联到`CustomUser`                                           |
+| `text`         | `TextField`            | 评论内容     |                                                              |
+| `created_at`   | `DateTimeField`        | 评论时间     | **后端自动生成**                                             |
+| `content_type` | `ForeignKey`           | 关联对象类型 | 指向 `ContentType` 表，用于标识被评论的是哪种记录 (例如 `SleepRecord`) |
+| `object_id`    | `PositiveIntegerField` | 关联对象ID   | 存储被评论记录的主键 ID (例如 `SleepRecord` 的 ID)           |
+
 ---
 
 ##  API接口文档
@@ -867,6 +890,124 @@ BUAA_2025
 
   - 400 Bad Request: 当 date 或 meal_type 参数缺失或无效时。
   - 500 Internal Server Error: 当本地食物库数据不足，无法构建合理套餐时。
+
+### **15. 好友与社交功能 (Friends & Social)**
+
+#### **15.1 好友关系 (Friendship)**
+
+*   **Endpoint**: `/api/friendships/`
+*   **核心**: 管理用户的好友关系，包括请求的发送、接受、拒绝以及动态查看权限的设置。
+
+| 操作               | Method   | URL                                     | 说明                                           |
+| :----------------- | :------- | :-------------------------------------- | :--------------------------------------------- |
+| **获取关系列表**   | `GET`    | `/api/friendships/`                     | 获取与我相关的所有关系（我发出的或我收到的）。 |
+| **发送好友请求**   | `POST`   | `/api/friendships/`                     | 向另一个用户发送好友请求。                     |
+| **接受好友请求**   | `PUT`    | `/api/friendships/{id}/accept/`         | 接受收到的好友请求。                           |
+| **拒绝/取消/删除** | `DELETE` | `/api/friendships/{id}/`                | 删除好友关系，或取消/拒绝一个待处理的请求。    |
+| **设置动态权限**   | `PUT`    | `/api/friendships/{id}/set-permission/` | **授权或取消**好友查看我动态的权限。           |
+
+* **获取关系列表 (`GET`) 的筛选功能**:
+
+  *   获取待处理的好友请求: `GET /api/friendships/?status=pending`
+  *   获取已接受的好友列表: `GET /api/friendships/?status=accepted`
+
+* **发送请求 (`POST`) Request Body**:
+
+  ```json
+  {
+      "to_user": 2 // 目标用户的ID
+  }
+  ```
+
+* **设置权限 (`PUT /set-permission/`) Request Body**:
+
+  ```json
+  {
+      "can_view": false // `false`为禁止好友查看我的动态, `true`为允许
+  }
+  ```
+
+* **响应 Body (示例)**:
+
+  ```json
+  {
+      "id": 1,
+      "from_user_info": { "username": "user_a", ... },
+      "to_user_info": { "username": "user_b", ... },
+      "status": "accepted",
+      "from_user_can_be_viewed": true, // user_a 是否授权 user_b 查看
+      "to_user_can_be_viewed": false   // user_b 是否授权 user_a 查看
+  }
+  ```
+
+#### **15.2 好友动态信息流 (Health Feed)**
+
+* **URL**: `/api/feed/`
+
+* **Method**: `GET`
+
+* **核心**: 获取一个按时间倒序排列的信息流，其中包含了所有**已授权**的好友最近7天发布的健康动态。
+
+* **Success Response (`200 OK`)**:
+
+  ```json
+  [
+      {
+          "type": "sleep",
+          "user": { "id": 2, "username": "friend_a" },
+          "timestamp": "2025-08-01T07:30:00Z",
+          "content": "睡了 8.5 小时。",
+          "content_type_model": "sleeprecord",
+          "object_id": 101
+      },
+      {
+          "type": "sport",
+          "user": { "id": 3, "username": "friend_b" },
+          "timestamp": "2025-07-31T00:00:00Z",
+          "content": "进行了 45 分钟的 游泳 运动，消耗了 400 大卡。",
+          "content_type_model": "sportrecord",
+          "object_id": 205
+      }
+  ]
+  ```
+
+#### **15.3 评论 (Comment)**
+
+*   **Endpoint**: `/api/comments/`
+*   **核心**: 对自己或**已授权**好友的动态进行评论。
+
+| 操作             | Method   | URL                   | 说明                                                 |
+| :--------------- | :------- | :-------------------- | :--------------------------------------------------- |
+| **获取评论列表** | `GET`    | `/api/comments/`      | 获取某条特定动态下的所有评论。**必须提供查询参数**。 |
+| **发表评论**     | `POST`   | `/api/comments/`      | 对某条动态发表一条新评论。                           |
+| **删除我的评论** | `DELETE` | `/api/comments/{id}/` | 删除自己发表的评论。                                 |
+
+* **获取列表 (`GET`) Query Parameters**: (必需)
+
+  *   `content_type_model`: 被评论动态的类型 (如 `sleeprecord`, `sportrecord`, `meal`)
+  *   `object_id`: 被评论动态的ID
+  *   **示例**: `GET /api/comments/?content_type_model=sleeprecord&object_id=101`
+
+* **发表评论 (`POST`) Request Body**:
+
+  ```json
+  {
+      "content_type_model": "sleeprecord",
+      "object_id": 101,
+      "text": "昨晚睡得真不错！"
+  }
+  ```
+
+* **响应 Body (示例)**:
+
+  ```json
+  {
+      "id": 5,
+      "author_username": "your_username",
+      "text": "昨晚睡得真不错！",
+      "created_at": "2025-08-01T09:00:00Z"
+  }
+  ```
 ---
 
 ## 当前（必做阶段）开发任务
