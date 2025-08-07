@@ -9,36 +9,27 @@ class Command(BaseCommand):
     help = '从指定目录下的所有JSON文件导入食物数据到FoodItem数据库中'
 
     def add_arguments(self, parser):
-        # 参数现在是目录路径，而不是单个文件路径
         parser.add_argument('directory_path', type=str, help='包含JSON文件的目录路径')
 
     def handle(self, *args, **options):
-        # 使用 pathlib 处理路径，更现代、更健壮
         dir_path = Path(options['directory_path'])
-
-        # 检查路径是否存在且是一个目录
         if not dir_path.is_dir():
             raise CommandError(f'错误: "{dir_path}" 不是一个有效的目录。')
 
-        # 使用 glob 查找目录下所有 .json 文件
         json_files = list(dir_path.glob('*.json'))
-
         if not json_files:
             self.stdout.write(self.style.WARNING(f'在目录 "{dir_path}" 中没有找到任何 .json 文件。'))
             return
 
         self.stdout.write(self.style.SUCCESS(f'在 "{dir_path}" 中找到 {len(json_files)} 个JSON文件。开始导入...'))
         
-        # 初始化总计数器
         total_created = 0
         total_updated = 0
         total_skipped = 0
 
-        # 遍历所有找到的JSON文件
         for file_path in json_files:
             self.stdout.write(f'\n--- 正在处理文件: {file_path.name} ---')
             try:
-                # 调用一个辅助方法来处理单个文件的导入逻辑
                 created, updated, skipped = self._import_file(file_path)
                 total_created += created
                 total_updated += updated
@@ -47,7 +38,6 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stderr.write(self.style.ERROR(f'处理文件 {file_path.name} 时发生严重错误: {e}'))
 
-        # 在所有文件处理完毕后，打印总报告
         self.stdout.write(self.style.SUCCESS('\n===================='))
         self.stdout.write(self.style.SUCCESS('所有文件导入完成！'))
         self.stdout.write(f'  - 总计新增: {total_created}')
@@ -65,7 +55,7 @@ class Command(BaseCommand):
                 data = json.load(f)
         except json.JSONDecodeError:
             self.stderr.write(self.style.ERROR(f'文件 "{file_path.name}" 格式错误，不是有效的JSON。'))
-            return 0, 0, 1 # 返回计数值
+            return 0, 0, 1
         
         if not isinstance(data, list):
             self.stderr.write(self.style.ERROR(f'文件 "{file_path.name}" 的JSON顶层结构不是一个列表。'))
@@ -75,13 +65,33 @@ class Command(BaseCommand):
             food_name = item.get('foodName')
             calories_str = item.get('energyKCal')
             product_code = item.get('foodCode')
+            
+            # ✨ 1. 新增：读取宏量营养素数据 ✨
+            protein_str = item.get('protein')
+            fat_str = item.get('fat')
+            carbs_str = item.get('CHO') # 注意JSON里的字段名是 'CHO'
 
             if not all([food_name, calories_str, product_code]):
                 skipped_count += 1
                 continue
 
             try:
-                calories_float = float(calories_str)
+                #    使用一个辅助函数来处理可能为空或'Tr'等无效值
+                def to_float(value_str):
+                    if value_str is None or not isinstance(value_str, str) or value_str.strip() in ['—', 'Tr', '']:
+                        return None # 如果是空或无效值，返回None，数据库会存为NULL
+                    return float(value_str)
+
+                calories_float = to_float(calories_str)
+                protein_float = to_float(protein_str)
+                fat_float = to_float(fat_str)
+                carbs_float = to_float(carbs_str)
+                
+                # 如果核心的卡路里数据都无效，就跳过
+                if calories_float is None:
+                    skipped_count += 1
+                    continue
+
             except (ValueError, TypeError):
                 skipped_count += 1
                 continue
@@ -91,7 +101,10 @@ class Command(BaseCommand):
                     product_code=product_code,
                     defaults={
                         'name': food_name,
-                        'calories_per_100g': calories_float
+                        'calories_per_100g': calories_float,
+                        'protein': protein_float,
+                        'fat': fat_float,
+                        'carbohydrates': carbs_float, # 注意模型的字段名是 carbohydrates
                     }
                 )
                 if created:

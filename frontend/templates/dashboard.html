@@ -59,10 +59,40 @@
                 </div>
                 <div class="card-body">
                     <h5 class="card-title"><span id="calories-eaten">--</span> 大卡</h5>
-                    <div class="progress mt-2" style="height: 10px;" role="progressbar" aria-label="饮食摄入进度" aria-valuenow="0" aria-valuemin="0" aria-valuemax="2000">
-                        <div id="diet-progress-bar" class="progress-bar" aria-valuetext="暂未记录"></div>
-                    </div>
                     <p class="card-text text-muted" id="diet-details">今日暂无饮食记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 今日目标进度区域 -->
+    <div class="mt-4" id="goals-section">
+        <h4 class="mb-3">今日目标进度</h4>
+        <div class="card">
+            <div class="card-body">
+                <div id="goals-progress-container" class="row text-center pt-3">
+                    
+                    <div class="col-md-4">
+                        <div class="chart-container">
+                            <canvas id="sleep-goal-chart"></canvas>
+                        </div>
+                        <h6 class="mt-3">睡眠时长</h6>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="chart-container">
+                            <canvas id="sport-goal-chart"></canvas>
+                        </div>
+                        <h6 class="mt-3">运动消耗</h6>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="chart-container">
+                            <canvas id="diet-goal-chart"></canvas>
+                        </div>
+                        <h6 class="mt-3">饮食摄入</h6>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -79,7 +109,7 @@
 {% block extra_js %}
     <!-- 引入CountUp.js -->
     <script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- 引入你自己的dashboard.js，使用规范的static标签 -->
     <script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}

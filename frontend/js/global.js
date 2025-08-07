@@ -30,9 +30,47 @@ function getCsrfToken() {
     return null;
 }
 
+/**
+ * [全局函数] 显示一个Bootstrap Toast提示
+ * @param {string} message - 要显示的消息
+ * @param {string} type - 'success', 'danger', 'warning', 'info' (对应Bootstrap背景色)
+ * @param {string} iconName - Bootstrap Icons的图标名 (e.g., 'check-circle-fill')
+ */
+function showToast(message, type = 'info', iconName = 'info-circle-fill') {
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '1100'; // 确保在最上层
+        document.body.appendChild(toastContainer);
+    }
+
+    const toastId = `toast-${Date.now()}`;
+    // ✨ 增加了图标显示 ✨
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-${iconName} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 }); // 持续5秒
+    toast.show();
+
+    toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const logoutLink = document.getElementById('logout-link');
-
     if (logoutLink) {
         logoutLink.addEventListener('click', function(event) {
             event.preventDefault(); // 阻止<a>标签的默认跳转行为
@@ -63,8 +101,43 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    const themeSwitchButton = document.getElementById('theme-switch');
+    async function checkHealthAlerts() {
+        if (!logoutLink) return;
 
+        try {
+            const response = await fetch('/api/alerts/check/', { credentials: 'include' });
+            if (!response.ok) return;
+            
+            const alerts = await response.json();
+
+            if (Array.isArray(alerts) && alerts.length > 0) {
+                alerts.forEach((alert, index) => {
+                    // a. 为每条警告创建一个唯一的key，用 alert_code
+                    const alertKey = `alert_shown_${alert.alert_code}`;
+
+                    // b. ✨ 关键检查：在显示之前，先看看sessionStorage里有没有记录 ✨
+                    if (!sessionStorage.getItem(alertKey)) {
+                        
+                        // c. 如果没有记录，说明是本次会话第一次看到，那么就显示它
+                        setTimeout(() => {
+                            showToast(alert.message, 'warning', 'exclamation-triangle-fill');
+                            
+                            // d. ✨ 显示之后，立刻在sessionStorage里“盖个章” ✨
+                            //    值设为 'true'，表示已经显示过了
+                            sessionStorage.setItem(alertKey, 'true');
+                        }, index * 1000);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('检查健康预警失败:', error);
+        }
+    }
+
+    // 页面加载完成后，延迟一点再检查，避免影响主内容加载
+    setTimeout(checkHealthAlerts, 2000); // 延迟2秒
+
+    const themeSwitchButton = document.getElementById('theme-switch');
     if (themeSwitchButton) { 
         // 函数：应用主题 [已升级]
         const applyTheme = (theme) => {

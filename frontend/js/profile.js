@@ -6,6 +6,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const dobInput = document.getElementById('date_of_birth');
     const submitButton = profileForm.querySelector('button[type="submit"]');
 
+    const goalsForm = document.getElementById('goals-form');
+    const sleepTargetInput = document.getElementById('target_sleep_duration');
+    const sportTargetInput = document.getElementById('target_sport_calories');
+    const dietTargetInput = document.getElementById('target_diet_calories');
+    const API_GOALS_URL = '/api/goals/'
+
     // 2. 监听表单的提交事件
     profileForm.addEventListener('submit', function(event) {
         event.preventDefault(); // 阻止表单的默认提交行为（页面刷新）
@@ -21,6 +27,66 @@ document.addEventListener('DOMContentLoaded', function() {
         // 4. 发起API请求来更新档案
         updateProfile(formData);
     });
+
+    /**
+     * 函数：获取用户已有的目标并填充表单
+     */
+    async function fetchAndSetGoals() {
+        try {
+            const response = await fetch(API_GOALS_URL, { credentials: 'include' });
+            if (!response.ok) return;
+            const goalsData = await response.json();
+
+            // 将获取到的数据填充到表单输入框中
+            if(goalsData.target_sleep_duration) sleepTargetInput.value = goalsData.target_sleep_duration;
+            if(goalsData.target_sport_calories) sportTargetInput.value = goalsData.target_sport_calories;
+            if(goalsData.target_diet_calories) dietTargetInput.value = goalsData.target_diet_calories;
+
+        } catch (error) {
+            console.error('获取健康目标失败:', error);
+        }
+    }
+
+    /**
+     * 函数：处理目标表单的提交
+     */
+    async function handleGoalsFormSubmit(event) {
+        event.preventDefault();
+
+        const dataToSubmit = {
+            target_sleep_duration: parseFloat(sleepTargetInput.value) || null,
+            target_sport_calories: parseInt(sportTargetInput.value, 10) || null,
+            target_diet_calories: parseInt(dietTargetInput.value, 10) || null,
+        };
+
+        const submitButton = goalsForm.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.textContent = '正在保存...';
+
+        try {
+            const response = await fetch(API_GOALS_URL, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                },
+                credentials: 'include',
+                body: JSON.stringify(dataToSubmit)
+            });
+            
+            if (!response.ok) throw new Error('保存目标失败');
+            
+            showToast('健康目标已更新！', 'success', 'check-circle-fill');
+
+        } catch (error) {
+            console.error('保存目标失败:', error);
+            showToast('保存失败，请重试。', 'danger', 'exclamation-triangle-fill');
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
+    }
 
     // 5. 定义API请求函数
     async function updateProfile(data) {
@@ -107,5 +173,13 @@ document.addEventListener('DOMContentLoaded', function() {
         toastElement.addEventListener('hidden.bs.toast', () => {
             toastElement.remove();
         });
+    }
+
+    // 页面加载时，获取并设置已有的目标
+    fetchAndSetGoals();
+
+    // 为目标表单绑定提交事件
+    if (goalsForm) {
+        goalsForm.addEventListener('submit', handleGoalsFormSubmit);
     }
 });

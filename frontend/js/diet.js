@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * [重构] 函数：获取并渲染指定日期的餐次记录
+     * 函数：获取并渲染指定日期的餐次记录
      * @param {string} dateStr - 'YYYY-MM-DD'格式的日期
      */
     async function fetchAndRenderMeals(dateStr) {
@@ -59,9 +59,83 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('获取餐次数据失败:', error);
             dietDetailsContainer.innerHTML = `<p class="text-danger">数据加载失败: ${error.message}</p>`;
         }
+        fetchAndRenderRecommendation(dateStr, 'lunch');
+    }
+
+    /**
+     * 获取并渲染指定日期的饮食推荐
+     * @param {string} dateStr - 日期 'YYYY-MM-DD'
+     * @param {string} mealType - 餐次 'breakfast', 'lunch', etc.
+     */
+    async function fetchAndRenderRecommendation(dateStr, mealType) {
+        const container = document.getElementById('recommendation-container');
+        if (!container) return;
+
+        container.innerHTML = `<div class="card card-body text-center"><div class="spinner-border spinner-border-sm"></div></div>`;
+
+        const API_URL = `/api/recommendations/diet/?date=${dateStr}&meal_type=${mealType}`;
+        try {
+            const response = await fetch(API_URL, { credentials: 'include' });
+            const result = await response.json();
+
+            if (result.status === 'info') {
+                // 处理“热量已达标”等提示信息
+                container.innerHTML = `<div class="card card-body text-center text-muted">${result.message}</div>`;
+                return;
+            }
+
+            if (result.status !== 'success') throw new Error(result.message);
+
+            renderRecommendation(result.recommendations);
+
+        } catch (error) {
+            console.error('获取饮食推荐失败:', error);
+            container.innerHTML = `<div class="card card-body text-center text-danger small">推荐加载失败</div>`;
+        }
+    }
+
+    /**
+     * ✨ [新增] 渲染推荐套餐的辅助函数
+     * @param {Array} recommendations - 推荐套餐数组
+     */
+    function renderRecommendation(recommendations) {
+        const container = document.getElementById('recommendation-container');
+        if (!container || recommendations.length === 0) {
+            container.innerHTML = `<div class="card card-body text-center text-muted">暂无推荐</div>`;
+            return;
+        }
+
+        // 我们只展示第一个推荐套餐
+        const a_recommendation = recommendations[0]
+        
+        const itemsHtml = a_recommendation.items.map(item => `
+            <li class="list-group-item d-flex justify-content-between">
+                <span>${item.name}</span>
+                <span class="text-muted">${item.portion_g}g</span>
+            </li>
+        `).join('');
+
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-header bg-success-subtle">
+                    <strong>${a_recommendation.title}</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                    ${itemsHtml}
+                </ul>
+                <div class="card-footer text-muted small">
+                    <div>总热量: <strong>${a_recommendation.total_calories.toFixed(0)} 大卡</strong></div>
+                    <div class="mt-1">
+                        <span class="me-2">蛋白质: ${a_recommendation.total_macros.protein.toFixed(1)}g</span>
+                        <span class="me-2">| 碳水: ${a_recommendation.total_macros.carbs.toFixed(1)}g</span>
+                        <span>| 脂肪: ${a_recommendation.total_macros.fat.toFixed(1)}g</span>
+                    </div>
+                </div>
+            </div>
+        `;
     }
     
-    // [不变] 辅助函数：渲染餐次列表
+    // 辅助函数：渲染餐次列表
     function renderMeals(meals) {
         dietDetailsContainer.innerHTML = '';
 
@@ -103,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // [不变] 辅助函数：更新总热量
+    // 辅助函数：更新总热量
     function updateTotalCalories(meals) {
         const totalCalories = meals.reduce((sum, meal) => sum + meal.total_calories, 0);
         if (totalCaloriesEl) {
@@ -112,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * [重构] 处理删除餐品条目的请求
+     * 处理删除餐品条目的请求
      */
     async function handleDeleteItem(itemId) {
         if (!confirm('您确定要删除这条食物记录吗？')) return;
@@ -135,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.handleDeleteItem = handleDeleteItem;
 
     /**
-     * [重构] 处理修改表单的提交事件
+     *  处理修改表单的提交事件
      */
     async function handleEditFormSubmit(event) {
         event.preventDefault();
@@ -158,7 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) modal.hide();
             
-            // ✨ 刷新当前正在查看的日期的数据 ✨
             await fetchAndRenderMeals(dateSelector.value);
         } catch (error) {
             console.error('修改食物记录失败:', error);
@@ -167,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * [重构] 处理主表单提交（添加新食物）
+     *  处理主表单提交（添加新食物）
      */
     async function handleFormSubmit(event) {
         event.preventDefault();
@@ -188,7 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // ✨ 关键修改：记录的日期不再是固定的“今天”，而是当前日期选择器的值
         const recordDate = dateSelector.value;
         if (!recordDate) {
             alert('请先选择一个日期！');
@@ -212,7 +284,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) throw new Error('添加食物失败');
             
             dietForm.reset();
-            // ✨ 刷新当前正在查看的日期的数据 ✨
             await fetchAndRenderMeals(recordDate);
         } catch (error) {
             console.error('提交饮食记录失败:', error);
@@ -220,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // [不变] 辅助函数：获取或创建餐次ID
+    // 辅助函数：获取或创建餐次ID
     async function getOrCreateMeal(dateStr, mealType) {
         const checkUrl = `${API_MEALS_URL}?record_date=${dateStr}&meal_type=${mealType}`;
         let response = await fetch(checkUrl, { credentials: 'include' });
@@ -244,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- 3. 初始化和事件绑定 ---
 
     /**
-     * [重构] 初始化页面
+     * 初始化页面
      */
     function initializePage() {
         // (假设 getFormattedDate 是在 global.js 中定义的全局函数)

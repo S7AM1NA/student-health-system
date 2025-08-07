@@ -21,3 +21,9 @@
     /* 这个变量由 dashboard.js 动态设置 */
     background-color: var(--progress-color, #198754) !important; /* 默认是Bootstrap的成功绿色 */
 }
+
+.chart-container {
+    position: relative;
+    /* height: 200px; 给一个固定的高度 */
+    width: 100%;
+}

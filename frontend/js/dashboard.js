@@ -1,5 +1,31 @@
-// 使用 'DOMContentLoaded' 事件确保在HTML完全加载后再执行我们的JS代码
 document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.centerTextPluginRegistered === 'undefined') {
+        Chart.register({
+            id: 'centerText',
+            beforeDraw: function(chart) {
+                const options = chart.options.plugins.centerText;
+                if (options && options.display) {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    if (!chartArea) return;
+                    
+                    ctx.save();
+                    ctx.font = options.font || 'bold 24px Arial'; // 字体调整得更清晰
+                    ctx.fillStyle = options.color || '#000';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    const centerX = (chartArea.left + chartArea.right) / 2;
+                    const centerY = (chartArea.top + chartArea.bottom) / 2;
+                    
+                    ctx.fillText(options.text, centerX, centerY);
+                    ctx.restore();
+                }
+            }
+        });
+        window.centerTextPluginRegistered = true;
+        console.log('Chart.js centerText plugin registered.'); // 添加日志，方便调试
+    }
 
     // ===================================================================
     // 1. 定义常量
@@ -33,11 +59,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const caloriesEatenEl = document.getElementById('calories-eaten');
     const dietDetailsEl = document.getElementById('diet-details');
 
-    const dietProgressBarEl = document.getElementById('diet-progress-bar');
-    const dietProgressContainer = document.querySelector('.progress');
-
     const summarySection = document.getElementById('health-summary');
     const summarySuggestionEl = document.getElementById('summary-suggestion');
+
+    const goalsProgressContainer = document.getElementById('goals-progress-container');
 
     // ===================================================================
     // 3. 定义一个函数来更新UI (我们的“室内设计师”)
@@ -90,8 +115,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // 更新饮食卡片
             if (data.diet.record_exists) {
-                const dietProgressBarEl = document.getElementById('diet-progress-bar');
-                const dietProgressContainer = dietProgressBarEl.parentElement;
 
                 // 修正点3：在CountUp前加上 countUp.
                 const caloriesEatenCountUp = new countUp.CountUp(caloriesEatenEl, data.diet.total_calories_eaten);
@@ -103,27 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 dietDetailsEl.textContent = '营养均衡，活力满满';
 
-                const dietGoal = 2000;
-                const progressPercentage = (data.diet.total_calories_eaten / dietGoal) * 100;
-
-                dietProgressBarEl.style.width = `${Math.min(progressPercentage, 100)}%`;
-
-                let progressColor = '#198754';
-                if (progressPercentage > 90) {
-                    progressColor = '#dc3545';
-                } else if (progressPercentage > 70) {
-                    progressColor = '#ffc107';
-                }
-                dietProgressBarEl.style.setProperty('--progress-color', progressColor);
-                dietProgressContainer.setAttribute('aria-valuenow', data.diet.total_calories_eaten);
-                dietProgressContainer.style.display = 'block';
-
             } else {
-                const dietProgressContainer = document.querySelector('.progress');
-                if (dietProgressContainer) {
-                    dietProgressContainer.style.display = 'none';
-                }
-
                 caloriesEatenEl.textContent = '0';
                 dietDetailsEl.textContent = '记录饮食，掌控健康';
             }
@@ -138,6 +141,11 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             summarySection.className = `mt-4 alert ${statusMap[data.health_summary.status_code] || 'alert-info'}`;
 
+            if (data.goals && goalsProgressContainer) {
+                renderGoalsProgress(data.goals);
+            } else if (goalsProgressContainer) {
+                goalsProgressContainer.innerHTML = '<p class="text-center text-muted">暂未设定健康目标。</p>';
+            }
         } else {
             alert(`获取数据失败: ${apiResponse.message}`);
             if (apiResponse.error_code === 'AUTH_REQUIRED') {
@@ -148,6 +156,96 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /**
+     * @param {object} goalsData - 从Dashboard API获取的goals对象
+     */
+    function renderGoalsProgress(goalsData) {
+        // 销毁旧的图表实例，防止内存泄漏和重绘错误
+        if (window.goalCharts && typeof window.goalCharts === 'object') {
+            Object.values(window.goalCharts).forEach(chart => {
+                if (chart instanceof Chart) chart.destroy();
+            });
+        }
+        window.goalCharts = {}; // 初始化或重置图表实例存储对象
+
+        // 定义一个通用的图表创建函数
+        const createDoughnutChart = (canvasId, progress, colorOptions) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+
+            const percentage = Math.round(progress);
+            // ✨ 新增：处理超标情况，确保甜甜圈的“灰色未完成”部分不会变成负数
+            const completedData = Math.min(percentage, 100);
+            const remainingData = Math.max(0, 100 - completedData);
+
+            let backgroundColor = colorOptions.default; // 使用默认色
+            if ( (colorOptions.reverse && percentage > 100) || (!colorOptions.reverse && percentage < 100) ) {
+                // 根据进度和颜色逻辑选择高亮色
+                backgroundColor = colorOptions.highlight;
+            }
+            
+            // ✨ 在中心文本的颜色选择上也使用同样的逻辑
+            let centerTextColor = colorOptions.default;
+            if ( (colorOptions.reverse && percentage > 100) || (!colorOptions.reverse && percentage >= 100) ) {
+                centerTextColor = colorOptions.highlight; // 超标用高亮色
+            } else if (!colorOptions.reverse && percentage < 100) {
+                centerTextColor = colorOptions.highlight; // 未达标用高亮色
+            }
+
+            return new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    // labels: ['已完成', '未完成'], // 我们可以去掉label，因为图例不显示
+                    datasets: [{
+                        data: [completedData, remainingData],
+                        backgroundColor: [backgroundColor, '#F0F2F5'], // ✨ 使用更柔和的浅灰色作为未完成背景
+                        borderWidth: 0, // ✨ 去掉边框，让色块更纯粹
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '80%', // ✨ 增加cutout百分比，让甜甜圈更“纤细”
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false },
+                        centerText: {
+                            display: true,
+                            text: `${percentage}%`,
+                            // ✨ 中心配色使用我们计算出的新变量
+                            color: centerTextColor,
+                            font: 'bold 22px "Helvetica Neue", Helvetica, Arial, sans-serif'
+                        }
+                    }
+                }
+            });
+        };
+
+        // --- 依次创建三个目标的图表 ---
+
+        // 1. 睡眠目标
+        window.goalCharts.sleep = createDoughnutChart(
+            'sleep-goal-chart', 
+            goalsData.progress_sleep_duration,
+            { highlight: '#FFC107', default: '#FFC107', reverse: false } // 黄色
+        );
+
+        // 2. 运动目标
+        window.goalCharts.sport = createDoughnutChart(
+            'sport-goal-chart', 
+            goalsData.progress_sport_calories,
+            { highlight: '#198754', default: '#198754', reverse: false } // 绿色
+        );
+
+        // 3. 饮食目标 (颜色逻辑相反)
+        window.goalCharts.diet = createDoughnutChart(
+            'diet-goal-chart', 
+            goalsData.progress_diet_calories,
+            { highlight: '#DC3545', default: '#198754', reverse: true } // 红色/绿色
+        );
+    }
+    
     // ===================================================================
     // 4. 定义主函数来发起API请求 (我们的“快递员”)
     // ===================================================================

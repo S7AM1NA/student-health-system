@@ -67,7 +67,7 @@ BUAA_2025
    # >>> exit()
    
    # 2. 运行导入命令
-   python manage.py import_food_data data
+   python manage.py import_food_data food_data_json
    ```
 
 6. **启动开发服务器**
