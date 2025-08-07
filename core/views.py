@@ -215,6 +215,13 @@ def report_page_view(request):
     """
     return render(request, 'report.html')
 
+@login_required(login_url='/login/')
+def friends_page_view(request):
+    """
+    渲染好友社交页面的视图。
+    """
+    return render(request, 'friends.html')
+
 @csrf_exempt # 临时禁用CSRF保护，方便前端直接调用
 def register_view(request):
     if request.method == 'POST':
@@ -1176,15 +1183,30 @@ class FriendshipViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # 返回所有与当前用户相关的好友关系（我发出的或我收到的）
-        return Friendship.objects.filter(Q(from_user=self.request.user) | Q(to_user=self.request.user))
+        """
+        【已修复】现在会根据URL中的 'status' 查询参数来过滤结果。
+        """
+        # 1. 基础查询集：获取与当前用户相关的所有关系
+        queryset = Friendship.objects.filter(
+            Q(from_user=self.request.user) | Q(to_user=self.request.user)
+        )
+
+        # 2. 从URL的查询参数中获取 'status' 的值
+        status = self.request.query_params.get('status', None)
+        
+        # 3. 如果 'status' 参数存在，就在现有查询集的基础上追加一层过滤
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        # 4. 返回最终经过筛选的结果集
+        return queryset
 
     def perform_create(self, serializer):
-        # 创建好友请求
-        to_user = serializer.validated_data.get('to_user')
-        if to_user == self.request.user:
-            raise ValidationError("你不能添加自己为好友。")
-        serializer.save(from_user=self.request.user, status=Friendship.STATUS_PENDING)
+        """
+        【已简化】现在只调用 save，所有复杂逻辑已移至Serializer的create方法中。
+        """
+        # save() 方法会自动调用我们上面写的 FriendshipSerializer.create()
+        serializer.save()
 
     @action(detail=True, methods=['put'])
     def accept(self, request, pk=None):
@@ -1230,14 +1252,15 @@ class FriendshipViewSet(viewsets.ModelViewSet):
 @method_decorator(csrf_exempt, name='dispatch')
 class HealthFeedView(APIView):
     """
-    获取已授权好友的健康动态信息流 (Feed)。
+    【已升级】获取好友及自己的健康动态信息流 (Feed)。
+    现在信息流中会包含用户自己的动态。
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
         
-        # 1. 查询所有授权我查看他们动态的好友ID
+        # 1. 查询所有授权我查看他们动态的好友ID (这部分逻辑不变)
         authorized_by_tousers = Friendship.objects.filter(
             from_user=user, status='accepted', to_user_can_be_viewed=True
         ).values_list('to_user_id', flat=True)
@@ -1248,25 +1271,32 @@ class HealthFeedView(APIView):
 
         authorized_friend_ids = list(authorized_by_tousers) + list(authorized_by_fromusers)
 
-        if not authorized_friend_ids:
-            return Response([])
+        # --- 【核心修改点】 ---
+        # 将自己的ID也加入到要查询的ID列表中
+        ids_to_fetch = list(set(authorized_friend_ids + [user.id]))
+        # ---------------------
 
-        # 2. 获取这些好友最近7天的各类记录
+        # 2. 获取这些ID（好友+自己）最近7天的各类记录
+        #    现在查询时使用的是包含自己的 ids_to_fetch 列表
         seven_days_ago = timezone.now() - timedelta(days=7)
-        sleeps = SleepRecord.objects.filter(user_id__in=authorized_friend_ids, wakeup_time__gte=seven_days_ago)
-        sports = SportRecord.objects.filter(user_id__in=authorized_friend_ids, record_date__gte=seven_days_ago.date())
-        meals = Meal.objects.filter(user_id__in=authorized_friend_ids, record_date__gte=seven_days_ago.date())
+        sleeps = SleepRecord.objects.filter(user_id__in=ids_to_fetch, wakeup_time__gte=seven_days_ago)
+        sports = SportRecord.objects.filter(user_id__in=ids_to_fetch, record_date__gte=seven_days_ago.date())
+        meals = Meal.objects.filter(user_id__in=ids_to_fetch, record_date__gte=seven_days_ago.date())
 
-        # 3. 将不同类型的记录格式化为统一的 feed item 结构
+        # 3. 将不同类型的记录格式化为统一的 feed item 结构 (这部分逻辑不变)
         feed_items = []
         for record in sleeps:
             feed_items.append({ 'type': 'sleep', 'user': {'id': record.user.id, 'username': record.user.username}, 'timestamp': record.wakeup_time, 'content': f"睡了 {round(record.duration.total_seconds() / 3600, 1)} 小时。", 'content_type_model': 'sleeprecord', 'object_id': record.id })
+        
         for record in sports:
-            feed_items.append({ 'type': 'sport', 'user': {'id': record.user.id, 'username': record.user.username}, 'timestamp': datetime.combine(record.record_date, time.min), 'content': f"进行了 {record.duration_minutes} 分钟的 {record.sport_type} 运动，消耗了 {record.calories_burned} 大卡。", 'content_type_model': 'sportrecord', 'object_id': record.id })
+            aware_timestamp = timezone.make_aware(datetime.combine(record.record_date, time.min))
+            feed_items.append({ 'type': 'sport', 'user': {'id': record.user.id, 'username': record.user.username}, 'timestamp': aware_timestamp, 'content': f"进行了 {record.duration_minutes} 分钟的 {record.sport_type} 运动，消耗了 {record.calories_burned} 大卡。", 'content_type_model': 'sportrecord', 'object_id': record.id })
+        
         for meal in meals:
-            feed_items.append({ 'type': 'diet', 'user': {'id': meal.user.id, 'username': meal.user.username}, 'timestamp': datetime.combine(meal.record_date, time.min), 'content': f"记录了 {meal.get_meal_type_display()}，摄入 {meal.total_calories} 大卡。", 'content_type_model': 'meal', 'object_id': meal.id })
+            aware_timestamp = timezone.make_aware(datetime.combine(meal.record_date, time.min))
+            feed_items.append({ 'type': 'diet', 'user': {'id': meal.user.id, 'username': meal.user.username}, 'timestamp': aware_timestamp, 'content': f"记录了 {meal.get_meal_type_display()}，摄入 {meal.total_calories} 大卡。", 'content_type_model': 'meal', 'object_id': meal.id })
 
-        # 4. 按时间倒序排序
+        # 4. 按时间倒序排序 (这部分逻辑不变)
         sorted_feed = sorted(feed_items, key=lambda item: item['timestamp'], reverse=True)
         return Response(sorted_feed)
 

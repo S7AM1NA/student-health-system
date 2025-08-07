@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}好友社交 - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+    {# 如果未来需要为好友页面添加特定样式，可以在这里引入 #}
+    {# <link rel="stylesheet" href="{% static 'css/friends.css' %}"> #}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="mb-4">
+        <h1 class="h3">好友社交</h1>
+        <p class="text-muted">与好友互动，分享健康点滴，共同进步。</p>
+    </header>
+
+    <div class="row g-5">
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-person-plus-fill me-2"></i>添加好友
+                </div>
+                <div class="card-body">
+                    <form id="add-friend-form" class="row g-2 align-items-center">
+                        <div class="col">
+                            <label for="search-user-input" class="visually-hidden">用户名或ID</label>
+                            <input type="text" class="form-control" id="search-user-input" placeholder="输入好友用户名/ID">
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary">发送请求</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-bell-fill me-2"></i>待处理的请求
+                </div>
+                <ul class="list-group list-group-flush" id="friend-requests-list">
+                    <li class="list-group-item text-center text-muted">暂无好友请求</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                   <i class="bi bi-people-fill me-2"></i>我的好友
+                </div>
+                <ul class="list-group list-group-flush" id="friends-list">
+                    <li class="list-group-item text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <h4><i class="bi bi-newspaper me-2"></i>好友动态</h4>
+            <div id="health-feed-container">
+                <div class="text-center mt-5">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">正在加载动态...</span>
+                    </div>
+                    <p class="text-muted mt-2">正在加载动态...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'js/friends.js' %}"></script>
+{% endblock %}

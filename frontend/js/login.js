@@ -50,6 +50,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 responseMessageDiv.style.display = 'block';
                 responseMessageDiv.textContent = result.message;
                 responseMessageDiv.className = 'response-message success';
+                // 从成功的响应 'result' 中获取 user_id 和 username
+                // 并将它们存储到浏览器的 localStorage 中
+                localStorage.setItem('user_id', result.user_id);
+                localStorage.setItem('username', result.username);
 
                 setTimeout(() => {
                     window.location.href = '/dashboard/';

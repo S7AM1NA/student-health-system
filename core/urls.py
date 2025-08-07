@@ -10,7 +10,7 @@ from .views import (
     diet_page_view,
     profile_page_view,
     report_page_view,
-
+    friends_page_view,
     register_view,
     login_view, 
     logout_view,
@@ -66,6 +66,7 @@ urlpatterns = [
     path('diet/', diet_page_view, name='diet_page'),
     path('report/', report_page_view, name='report_page'),
     path('profile/', profile_page_view, name='profile'),
+    path('friends/', friends_page_view, name='friends_page'),
 
     # ==========================================================
     #  API 路由 (API Routes)

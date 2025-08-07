@@ -1,5 +1,6 @@
 # core/serializers.py
 from rest_framework import serializers
+from django.db.models import Q
 from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser, UserHealthGoal, Friendship, Comment, ContentType
 
 class SleepRecordSerializer(serializers.ModelSerializer):
@@ -55,7 +56,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'gender', 'date_of_birth']
+        fields = ['id', 'username', 'email', 'gender', 'date_of_birth']
         # 用户名在个人档案更新时不应被修改
         read_only_fields = ['username']
 
@@ -78,22 +79,52 @@ class UserHealthGoalSerializer(serializers.ModelSerializer):
 
 class FriendshipSerializer(serializers.ModelSerializer):
     """
-    序列化好友关系数据。
+    【最终功能版】通过重写create方法，将所有创建逻辑内聚到Serializer中。
     """
-    # 嵌套序列化，方便前端直接获取好友的用户名等信息
     from_user_info = UserProfileSerializer(source='from_user', read_only=True)
     to_user_info = UserProfileSerializer(source='to_user', read_only=True)
+    to_user_username = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = Friendship
         fields = [
             'id', 'from_user', 'to_user', 'status', 'created_at',
             'from_user_info', 'to_user_info',
-            # 暴露授权字段给前端
-            'from_user_can_be_viewed', 'to_user_can_be_viewed'
+            'from_user_can_be_viewed', 'to_user_can_be_viewed',
+            'to_user_username'
         ]
-        # 创建时，from_user 和 status 是自动设置的，前端只需提供 to_user 的ID
-        read_only_fields = ['from_user', 'status', 'created_at', 'from_user_info', 'to_user_info']
+        read_only_fields = ['from_user', 'to_user', 'status', 'created_at', 'from_user_info', 'to_user_info']
+
+    def create(self, validated_data):
+        # 1. 从 validated_data 中弹出 to_user_username，这样它就不会被传给 Friendship.objects.create()
+        to_user_username = validated_data.pop('to_user_username')
+        
+        # 2. 从上下文中获取请求的发起者
+        from_user = self.context['request'].user
+
+        # 3. 查找目标用户
+        try:
+            to_user = CustomUser.objects.get(username=to_user_username)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError(f"找不到用户名为 '{to_user_username}' 的用户。")
+
+        # 4. 执行所有验证逻辑
+        if to_user == from_user:
+            raise serializers.ValidationError("你不能添加自己为好友。")
+        
+        if Friendship.objects.filter(
+            (Q(from_user=from_user, to_user=to_user) | 
+             Q(from_user=to_user, to_user=from_user))
+        ).exists():
+            raise serializers.ValidationError("你们之间已经存在好友关系或待处理的请求。")
+            
+        # 5. 使用正确的字段创建 Friendship 实例
+        friendship = Friendship.objects.create(
+            from_user=from_user, 
+            to_user=to_user, 
+            status=Friendship.STATUS_PENDING
+        )
+        return friendship
 
 class CommentSerializer(serializers.ModelSerializer):
     """
