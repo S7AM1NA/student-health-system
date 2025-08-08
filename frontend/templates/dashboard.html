@@ -4,133 +4,135 @@
 {% block title %}我的健康看板 - {{ block.super }}{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-    <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
 {% endblock %}
 
 
 {% block content %}
-    <header class="mb-4">
-        <h3>欢迎回来, <span id="username-display" class="text-primary">{{ user.username }}</span>!</h3>
-        <p class="text-muted">这是您 <span id="today-date">YYYY-MM-DD</span> 的健康数据概览。</p>
-        <div class="row align-items-center mt-3">
-            <div class="col-md-auto">
-                <p class="text-muted mb-0">查看日期:</p>
-            </div>
-            <div class="col-md-3">
-                <input type="date" class="form-control" id="date-selector">
-            </div>
+<header class="mb-4">
+    <h3>欢迎回来, <span id="username-display" class="text-primary">{{ user.username }}</span>!</h3>
+    <p class="text-muted">这是您 <span id="today-date">YYYY-MM-DD</span> 的健康数据概览。</p>
+    <div class="row align-items-center mt-3">
+        <div class="col-md-auto">
+            <p class="text-muted mb-0">查看日期:</p>
         </div>
-    </header>
-
-    <!-- 数据卡片区域 -->
-    <div class="row">
-        <!-- 睡眠卡片 -->
-        <div class="col-md-4 mb-3">
-            <div class="card text-center">
-                <div class="card-header">
-                    <iconify-icon icon="mdi:sleep" class="card-header-icon"></iconify-icon> 睡眠
-                </div>
-                <div class="card-body">
-                    <h5 class="card-title" id="sleep-duration">-- 小时</h5>
-                    <p class="card-text text-muted" id="sleep-time-range">未记录</p>
-                </div>
-            </div>
+        <div class="col-md-3">
+            <input type="date" class="form-control" id="date-selector">
         </div>
+    </div>
+</header>
 
-        <!-- 运动卡片 -->
-        <div class="col-md-4 mb-3">
-            <div class="card text-center">
-                <div class="card-header">
-                    <iconify-icon icon="material-symbols:directions-run" class="card-header-icon"></iconify-icon> 运动
-                </div>
-                <div class="card-body">
-                    <h5 class="card-title"><span id="calories-burned">--</span> 大卡</h5>
-                    <p class="card-text text-muted" id="sport-details">今日暂无运动</p>
-                </div>
+<!-- 数据卡片区域 -->
+<div class="row">
+    <!-- 睡眠卡片 -->
+    <div class="col-md-4 mb-3">
+        <div class="card text-center">
+            <div class="card-header">
+                <iconify-icon icon="mdi:sleep" class="card-header-icon"></iconify-icon> 睡眠
             </div>
-        </div>
-
-        <!-- 饮食卡片 -->
-        <div class="col-md-4 mb-3">
-            <div class="card text-center">
-                <div class="card-header">
-                    <iconify-icon icon="ic:baseline-restaurant" class="card-header-icon"></iconify-icon> 饮食
-                </div>
-                <div class="card-body">
-                    <h5 class="card-title"><span id="calories-eaten">--</span> 大卡</h5>
-                    <p class="card-text text-muted" id="diet-details">今日暂无饮食记录</p>
-                </div>
+            <div class="card-body">
+                <h5 class="card-title" id="sleep-duration">-- 小时</h5>
+                <p class="card-text text-muted" id="sleep-time-range">未记录</p>
             </div>
         </div>
     </div>
 
-    <div class="mt-4" id="insights-section">
-        <div class="row g-4 align-items-strench"> <!-- 使用 align-items-center 让左右两栏垂直居中对齐 -->
-            
-            <!-- 左侧：活力三环图表和进度详情 -->
-            <div class="col-lg-8">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            
-                            <!-- 左半部分：图表容器 -->
-                            <div class="col-md-7">
-                                <div class="vitality-rings-container">
-                                    <!-- Canvas 元素用于绘制图表 -->
-                                    <canvas id="vitality-rings-chart"></canvas>
-                                    <!-- 覆盖在 Canvas 上的文字 -->
-                                    <div class="vitality-rings-text">
-                                        <h4 class="vitality-rings-title mb-0">活力三环</h4>
-                                        <p class="vitality-rings-status text-muted mb-0" id="vitality-rings-status">0/3 目标达成</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 右半部分：文字进度详情 -->
-                            <div class="col-md-5">
-                                <div class="progress-details">
-                                    <h5 class="mb-3">今日目标进度</h5>
-                                    <div id="sleep-progress-text-wrapper" class="progress-item mb-2">
-                                        <span class="progress-dot sleep-dot"></span>
-                                        <span id="sleep-progress-text">睡眠：-- / -- 小时</span>
-                                    </div>
-                                    <div id="sport-progress-text-wrapper" class="progress-item mb-2">
-                                        <span class="progress-dot sport-dot"></span>
-                                        <span id="sport-progress-text">运动：-- / -- 大卡</span>
-                                    </div>
-                                    <div id="diet-progress-text-wrapper" class="progress-item">
-                                        <span class="progress-dot diet-dot"></span>
-                                        <span id="diet-progress-text">饮食：-- / -- 大卡</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
+    <!-- 运动卡片 -->
+    <div class="col-md-4 mb-3">
+        <div class="card text-center">
+            <div class="card-header">
+                <iconify-icon icon="material-symbols:directions-run" class="card-header-icon"></iconify-icon> 运动
             </div>
+            <div class="card-body">
+                <h5 class="card-title"><span id="calories-burned">--</span> 大卡</h5>
+                <p class="card-text text-muted" id="sport-details">今日暂无运动</p>
+            </div>
+        </div>
+    </div>
 
-            <!-- 右侧：健康小结（已移除背景色） -->
-            <div class="col-lg-4">
-                <div class="card h-100" id="health-summary">
-                    <div class="card-body">
-                        <div id="summary-content-wrapper">
-                            <h5 class="mb-3">今日小结</h5>
-                            <p id="summary-suggestion" class="fs-5 text-muted">请稍候...</p>
+    <!-- 饮食卡片 -->
+    <div class="col-md-4 mb-3">
+        <div class="card text-center">
+            <div class="card-header">
+                <iconify-icon icon="ic:baseline-restaurant" class="card-header-icon"></iconify-icon> 饮食
+            </div>
+            <div class="card-body">
+                <h5 class="card-title"><span id="calories-eaten">--</span> 大卡</h5>
+                <p class="card-text text-muted" id="diet-details">今日暂无饮食记录</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4" id="insights-section">
+    <!-- 修正点1: 将 align-items-strench 改为 align-items-stretch -->
+    <div class="row g-4 align-items-stretch">
+
+        <!-- 左侧：活力三环图表和进度详情 -->
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+
+                        <!-- 左半部分：图表容器 -->
+                        <div class="col-md-7">
+                            <div class="vitality-rings-container">
+                                <!-- Canvas 元素用于绘制图表 -->
+                                <canvas id="vitality-rings-chart"></canvas>
+                                <!-- 覆盖在 Canvas 上的文字 -->
+                                <div class="vitality-rings-text">
+                                    <h4 class="vitality-rings-title mb-0">活力三环</h4>
+                                    <p class="vitality-rings-status text-muted mb-0" id="vitality-rings-status">0/3 目标达成
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 右半部分：文字进度详情 -->
+                        <div class="col-md-5">
+                            <div class="progress-details">
+                                <h5 class="mb-3">今日目标进度</h5>
+                                <div id="sleep-progress-text-wrapper" class="progress-item mb-2">
+                                    <span class="progress-dot sleep-dot"></span>
+                                    <span id="sleep-progress-text">睡眠：-- / -- 小时</span>
+                                </div>
+                                <div id="sport-progress-text-wrapper" class="progress-item mb-2">
+                                    <span class="progress-dot sport-dot"></span>
+                                    <span id="sport-progress-text">运动：-- / -- 大卡</span>
+                                </div>
+                                <div id="diet-progress-text-wrapper" class="progress-item">
+                                    <span class="progress-dot diet-dot"></span>
+                                    <span id="diet-progress-text">饮食：-- / -- 大卡</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 右侧：健康小结 -->
+        <div class="col-lg-4">
+            <div class="card h-100" id="health-summary">
+                <!-- 修正点2: 添加flexbox工具类实现内容垂直居中和文字居中 -->
+                <div class="card-body d-flex flex-column justify-content-center text-center">
+                    <div id="summary-content-wrapper">
+                        <h5 class="mb-3">今日小结</h5>
+                        <p id="summary-suggestion" class="fs-5 text-muted">请稍候...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 {% endblock %}
 
 
 {% block extra_js %}
-    <!-- 引入CountUp.js -->
-    <script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 引入你自己的dashboard.js，使用规范的static标签 -->
-    <script src="{% static 'js/dashboard.js' %}"></script>
+<!-- 引入CountUp.js -->
+<script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- 引入你自己的dashboard.js，使用规范的static标签 -->
+<script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}
