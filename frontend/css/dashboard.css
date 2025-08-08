@@ -26,4 +26,72 @@
     position: relative;
     /* height: 200px; 给一个固定的高度 */
     width: 100%;
+    height: 100%;
+}
+
+.vitality-rings-container {
+    position: relative;
+    max-width: 300px; /* 限制图表最大宽度，避免在宽屏上过大 */
+    margin: 0 auto;   /* 水平居中 */
+}
+
+.vitality-rings-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none; /* 让鼠标事件可以穿透这个div，点击到下面的canvas */
+}
+
+.vitality-rings-title {
+    font-size: 1.5rem; /* 调整“活力三环”字体大小 */
+    font-weight: 600;
+}
+
+.vitality-rings-status {
+    font-size: 0.9rem; /* 调整“目标达成”字体大小 */
+}
+
+.progress-details p {
+    font-size: 1rem;
+    margin-bottom: 0.75rem; /* 增加段落之间的间距 */
+    color: #555;
+}
+
+.vitality-rings-text {
+    position: absolute;
+    bottom: 15%; /* 定位到底部，可以微调这个值 */
+    left: 50%;
+    transform: translateX(-50%); /* 只需水平居中 */
+    text-align: center;
+    pointer-events: none;
+}
+
+.progress-item {
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+}
+
+.progress-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.sleep-dot { background-color: #ffcd56; }
+.sport-dot { background-color: #ff6384; }
+.diet-dot {  background-color: #36a2eb; } 
+
+.progress-details h5 {
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+#summary-suggestion {
+    font-size: 1.05rem;
 }

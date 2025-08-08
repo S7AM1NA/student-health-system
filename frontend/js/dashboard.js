@@ -1,32 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-    if (typeof window.centerTextPluginRegistered === 'undefined') {
-        Chart.register({
-            id: 'centerText',
-            beforeDraw: function(chart) {
-                const options = chart.options.plugins.centerText;
-                if (options && options.display) {
-                    const ctx = chart.ctx;
-                    const chartArea = chart.chartArea;
-                    if (!chartArea) return;
-                    
-                    ctx.save();
-                    ctx.font = options.font || 'bold 24px Arial'; // 字体调整得更清晰
-                    ctx.fillStyle = options.color || '#000';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    
-                    const centerX = (chartArea.left + chartArea.right) / 2;
-                    const centerY = (chartArea.top + chartArea.bottom) / 2;
-                    
-                    ctx.fillText(options.text, centerX, centerY);
-                    ctx.restore();
-                }
-            }
-        });
-        window.centerTextPluginRegistered = true;
-        console.log('Chart.js centerText plugin registered.'); // 添加日志，方便调试
-    }
-
     // ===================================================================
     // 1. 定义常量
     // ===================================================================
@@ -68,6 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 3. 定义一个函数来更新UI (我们的“室内设计师”)
     // ===================================================================
     function updateDashboardUI(apiResponse) {
+        console.log("--- 1. Entering updateDashboardUI ---");
         if (apiResponse.status === 'success') {
             const data = apiResponse.data;
 
@@ -132,122 +105,128 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // 更新健康小结
-            summarySuggestionEl.textContent = data.health_summary.suggestion;
-            const statusMap = {
-                'BALANCED': 'alert-success',
-                'HIGH_INTAKE': 'alert-warning',
-                'LOW_INTAKE': 'alert-info',
-                'NEUTRAL': 'alert-secondary'
-            };
-            summarySection.className = `mt-4 alert ${statusMap[data.health_summary.status_code] || 'alert-info'}`;
-
-            if (data.goals && goalsProgressContainer) {
-                renderGoalsProgress(data.goals);
-            } else if (goalsProgressContainer) {
-                goalsProgressContainer.innerHTML = '<p class="text-center text-muted">暂未设定健康目标。</p>';
+            const summaryWrapper = document.getElementById('summary-content-wrapper');
+            if (summaryWrapper) {
+                const heading = summaryWrapper.querySelector('.alert-heading');
+                const suggestionP = summaryWrapper.querySelector('#summary-suggestion');
+                if(heading) heading.textContent = "今日小结"; // 确保标题正确
+                if(suggestionP) suggestionP.textContent = data.health_summary.suggestion;
             }
-        } else {
-            alert(`获取数据失败: ${apiResponse.message}`);
-            if (apiResponse.error_code === 'AUTH_REQUIRED') {
-                setTimeout(() => {
-                    window.location.href = '/login.html';
-                }, 3000);
-            }
+            
+            renderGoalsProgress(data);
         }
     }
 
     /**
-     * @param {object} goalsData - 从Dashboard API获取的goals对象
+     * 【V7 - 融合版】基于V4的完美重叠，并用新技巧消除缝隙
      */
-    function renderGoalsProgress(goalsData) {
-        // 销毁旧的图表实例，防止内存泄漏和重绘错误
-        if (window.goalCharts && typeof window.goalCharts === 'object') {
-            Object.values(window.goalCharts).forEach(chart => {
-                if (chart instanceof Chart) chart.destroy();
-            });
+    function renderGoalsProgress(data) {
+        if (window.vitalityChart instanceof Chart) {
+            window.vitalityChart.destroy();
         }
-        window.goalCharts = {}; // 初始化或重置图表实例存储对象
+        const ctx = document.getElementById('vitality-rings-chart');
+        if (!ctx) return;
 
-        // 定义一个通用的图表创建函数
-        const createDoughnutChart = (canvasId, progress, colorOptions) => {
-            const ctx = document.getElementById(canvasId);
-            if (!ctx) return;
+        // --- 数据准备 --- (不变)
+        const goalsData = data.goals || {};
+        const current_sleep = data.sleep.duration_hours || 0;
+        const target_sleep = goalsData.target_sleep_duration || 0;
+        const progress_sleep = target_sleep > 0 ? (current_sleep / target_sleep) * 100 : 0;
+        const current_sport = data.sports.total_calories_burned || 0;
+        const target_sport = goalsData.target_sport_calories || 0;
+        const progress_sport = target_sport > 0 ? (current_sport / target_sport) * 100 : 0;
+        const current_diet = data.diet.total_calories_eaten || 0;
+        const target_diet = goalsData.target_diet_calories || 0;
+        const progress_diet = target_diet > 0 ? (current_diet / target_diet) * 100 : 0;
 
-            const percentage = Math.round(progress);
-            // ✨ 新增：处理超标情况，确保甜甜圈的“灰色未完成”部分不会变成负数
-            const completedData = Math.min(percentage, 100);
-            const remainingData = Math.max(0, 100 - completedData);
+        // --- 更新UI文本 --- (不变)
+        document.getElementById('sleep-progress-text').textContent = `睡眠：${current_sleep.toFixed(1)} / ${target_sleep.toFixed(1)} 小时`;
+        document.getElementById('sport-progress-text').textContent = `运动：${Math.round(current_sport)} / ${Math.round(target_sport)} 大卡`;
+        document.getElementById('diet-progress-text').textContent = `饮食：${Math.round(current_diet)} / ${Math.round(target_diet)} 大卡`;
 
-            let backgroundColor = colorOptions.default; // 使用默认色
-            if ( (colorOptions.reverse && percentage > 100) || (!colorOptions.reverse && percentage < 100) ) {
-                // 根据进度和颜色逻辑选择高亮色
-                backgroundColor = colorOptions.highlight;
-            }
-            
-            // ✨ 在中心文本的颜色选择上也使用同样的逻辑
-            let centerTextColor = colorOptions.default;
-            if ( (colorOptions.reverse && percentage > 100) || (!colorOptions.reverse && percentage >= 100) ) {
-                centerTextColor = colorOptions.highlight; // 超标用高亮色
-            } else if (!colorOptions.reverse && percentage < 100) {
-                centerTextColor = colorOptions.highlight; // 未达标用高亮色
-            }
+        let completedGoals = 0;
+        if (progress_sleep >= 100) completedGoals++;
+        if (progress_sport >= 100) completedGoals++;
+        if (progress_diet > 0 && progress_diet <= 100) completedGoals++;
+        document.getElementById('vitality-rings-status').textContent = `${completedGoals}/3 目标达成`;
 
-            return new Chart(ctx.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    // labels: ['已完成', '未完成'], // 我们可以去掉label，因为图例不显示
-                    datasets: [{
-                        data: [completedData, remainingData],
-                        backgroundColor: [backgroundColor, '#F0F2F5'], // ✨ 使用更柔和的浅灰色作为未完成背景
-                        borderWidth: 0, // ✨ 去掉边框，让色块更纯粹
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '80%', // ✨ 增加cutout百分比，让甜甜圈更“纤细”
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: false },
-                        centerText: {
-                            display: true,
-                            text: `${percentage}%`,
-                            // ✨ 中心配色使用我们计算出的新变量
-                            color: centerTextColor,
-                            font: 'bold 22px "Helvetica Neue", Helvetica, Arial, sans-serif'
-                        }
-                    }
-                }
-            });
+        // --- 准备图表数据 --- (不变)
+        const ringColors = {
+            sport: { solid: '#ff6384', faded: '#ff638433' },
+            sleep: { solid: '#ffcd56', faded: '#ffcd5633' },
+            diet:  { solid: '#36a2eb', faded: '#36a2eb33' }
         };
 
-        // --- 依次创建三个目标的图表 ---
+        // ⭐ 核心修改在这里：创建数据集的函数
+        function createRingDataset(progress, colors) {
+            const safeProgress = Math.min(100, Math.max(0, progress));
+            const cornerRadius = 20; // 定义统一的圆角大小
 
-        // 1. 睡眠目标
-        window.goalCharts.sleep = createDoughnutChart(
-            'sleep-goal-chart', 
-            goalsData.progress_sleep_duration,
-            { highlight: '#FFC107', default: '#FFC107', reverse: false } // 黄色
-        );
+            return {
+                data: [safeProgress, 100 - safeProgress],
+                backgroundColor: [colors.solid, colors.faded],
+                borderWidth: 0,
+                // 关键技巧：为每个数据段的每个角单独设置 borderRadius
+                borderRadius: {
+                    // outerStart: 进度条起点的外圆角
+                    // outerEnd: 进度条终点的外圆角
+                    // innerStart: 进度条起点的内圆角
+                    // innerEnd: 进度条终点的内圆角
+                    // 我们让整个环的起点和终点是圆角，但中间交界处是直角
+                    outerStart: cornerRadius,
+                    outerEnd: cornerRadius,
+                    innerStart: cornerRadius,
+                    innerEnd: cornerRadius,
+                },
+                // 这是一个非官方但部分版本有效的技巧，用于平滑处理
+                borderSkipped: false, 
+            };
+        }
 
-        // 2. 运动目标
-        window.goalCharts.sport = createDoughnutChart(
-            'sport-goal-chart', 
-            goalsData.progress_sport_calories,
-            { highlight: '#198754', default: '#198754', reverse: false } // 绿色
-        );
-
-        // 3. 饮食目标 (颜色逻辑相反)
-        window.goalCharts.diet = createDoughnutChart(
-            'diet-goal-chart', 
-            goalsData.progress_diet_calories,
-            { highlight: '#DC3545', default: '#198754', reverse: true } // 红色/绿色
-        );
+        window.vitalityChart = new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                datasets: [
+                    createRingDataset(progress_sport, ringColors.sport),
+                    createRingDataset(progress_sleep, ringColors.sleep),
+                    createRingDataset(progress_diet, ringColors.diet),
+                ]
+            },
+            // options 部分与 V4 保持一致，确保重叠和样式
+            options: {
+                maintainAspectRatio: false,
+                circumference: 270,
+                rotation: 225,
+                cutout: '50%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                // 在新版本Chart.js中，borderRadius的精细控制不再需要写在datasets里，
+                // 而是通过上下文(context)在主options里实现
+                elements: {
+                    arc: {
+                        // 使用scriptable options（上下文回调函数）
+                        borderRadius: (context) => {
+                            // 如果是第一个数据段（深色进度）
+                            if (context.dataIndex === 0) {
+                                // 只让它的终点是圆角
+                                return { outerEnd: 20, innerEnd: 20 };
+                            }
+                            // 如果是第二个数据段（浅色轨道）
+                            else {
+                                // 只让它的起点是圆角
+                                return { outerStart: 20, innerStart: 20 };
+                            }
+                        },
+                    }
+                }
+            }
+        });
     }
     
     // ===================================================================
-    // 4. 定义主函数来发起API请求 (我们的“快递员”)
+    // 4. 定义主函数来发起API请求
     // ===================================================================
     async function fetchDashboardData(dateStr) {
         // 1. 使用传入的日期字符串来构建API URL
@@ -283,21 +262,19 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error('无法从服务器获取数据:', error);
 
-            // 7. catch块错误处理
-            const mainContent = document.querySelector('main');
-            if (mainContent) {
-                const summarySection = document.getElementById('health-summary');
-                if(summarySection) {
-                    summarySection.className = 'mt-4 alert alert-danger';
-                    summarySection.innerHTML = `<h4 class="alert-heading">加载失败!</h4><p>${error.message}</p><p class="mb-0">请检查网络或稍后 <a href="#" onclick="event.preventDefault(); location.reload();">刷新页面</a> 重试。</p>`;
-                } else {
-                    mainContent.innerHTML = `<div class="alert alert-danger">...</div>`;
-                }
-            } else {
-                alert(`加载失败: ${error.message}`);
+            const insightsSection = document.getElementById('insights-section');
+            if(insightsSection) {
+                insightsSection.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <h4 class="alert-heading">加载失败!</h4>
+                            <p>${error.message}</p>
+                            <hr>
+                            <p class="mb-0">请检查网络连接或后台服务是否正常，然后 <a href="#" onclick="event.preventDefault(); location.reload();">刷新页面</a> 重试。</p>
+                        </div>
+                    </div>`;
             }
         } finally {
-            // 8. 无论成功还是失败，都取消加载中状态
             document.body.style.cursor = 'default';
             cards.forEach(card => card.style.opacity = '1');
         }

@@ -65,43 +65,64 @@
         </div>
     </div>
 
-    <!-- 今日目标进度区域 -->
-    <div class="mt-4" id="goals-section">
-        <h4 class="mb-3">今日目标进度</h4>
-        <div class="card">
-            <div class="card-body">
-                <div id="goals-progress-container" class="row text-center pt-3">
-                    
-                    <div class="col-md-4">
-                        <div class="chart-container">
-                            <canvas id="sleep-goal-chart"></canvas>
-                        </div>
-                        <h6 class="mt-3">睡眠时长</h6>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <div class="chart-container">
-                            <canvas id="sport-goal-chart"></canvas>
-                        </div>
-                        <h6 class="mt-3">运动消耗</h6>
-                    </div>
+    <div class="mt-4" id="insights-section">
+        <div class="row g-4 align-items-strench"> <!-- 使用 align-items-center 让左右两栏垂直居中对齐 -->
+            
+            <!-- 左侧：活力三环图表和进度详情 -->
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            
+                            <!-- 左半部分：图表容器 -->
+                            <div class="col-md-7">
+                                <div class="vitality-rings-container">
+                                    <!-- Canvas 元素用于绘制图表 -->
+                                    <canvas id="vitality-rings-chart"></canvas>
+                                    <!-- 覆盖在 Canvas 上的文字 -->
+                                    <div class="vitality-rings-text">
+                                        <h4 class="vitality-rings-title mb-0">活力三环</h4>
+                                        <p class="vitality-rings-status text-muted mb-0" id="vitality-rings-status">0/3 目标达成</p>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div class="col-md-4">
-                        <div class="chart-container">
-                            <canvas id="diet-goal-chart"></canvas>
-                        </div>
-                        <h6 class="mt-3">饮食摄入</h6>
-                    </div>
+                            <!-- 右半部分：文字进度详情 -->
+                            <div class="col-md-5">
+                                <div class="progress-details">
+                                    <h5 class="mb-3">今日目标进度</h5>
+                                    <div id="sleep-progress-text-wrapper" class="progress-item mb-2">
+                                        <span class="progress-dot sleep-dot"></span>
+                                        <span id="sleep-progress-text">睡眠：-- / -- 小时</span>
+                                    </div>
+                                    <div id="sport-progress-text-wrapper" class="progress-item mb-2">
+                                        <span class="progress-dot sport-dot"></span>
+                                        <span id="sport-progress-text">运动：-- / -- 大卡</span>
+                                    </div>
+                                    <div id="diet-progress-text-wrapper" class="progress-item">
+                                        <span class="progress-dot diet-dot"></span>
+                                        <span id="diet-progress-text">饮食：-- / -- 大卡</span>
+                                    </div>
+                                </div>
+                            </div>
 
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：健康小结（已移除背景色） -->
+            <div class="col-lg-4">
+                <div class="card h-100" id="health-summary">
+                    <div class="card-body">
+                        <div id="summary-content-wrapper">
+                            <h5 class="mb-3">今日小结</h5>
+                            <p id="summary-suggestion" class="fs-5 text-muted">请稍候...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- 健康小结区域 -->
-    <div class="mt-4 alert alert-info" id="health-summary">
-        <h4 class="alert-heading">今日小结</h4>
-        <p id="summary-suggestion">正在分析您的健康数据...</p>
     </div>
 {% endblock %}
 
