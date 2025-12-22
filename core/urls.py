@@ -11,6 +11,8 @@ from .views import (
     profile_page_view,
     report_page_view,
     friends_page_view,
+    body_metrics_page_view,  # 新增 (Member B)
+    articles_page_view,       # 新增 (Member B)
     register_view,
     login_view, 
     logout_view,
@@ -29,6 +31,15 @@ from .views import (
     FriendshipViewSet,
     HealthFeedView,
     CommentViewSet,
+    # 新增 ViewSets (Member A)
+    BodyMetricViewSet,
+    ArticleCategoryViewSet,
+    HealthArticleViewSet,
+    UserReadHistoryViewSet,
+    SystemLogViewSet,
+    # 新增 Views (Member C)
+    DataExportView,
+    FoodImportView,
 )
 
 from django.conf import settings
@@ -43,6 +54,12 @@ router.register(r'meals', MealViewSet, basename='meal')
 router.register(r'meal-items', MealItemViewSet, basename='mealitem')
 router.register(r'friendships', FriendshipViewSet, basename='friendship')
 router.register(r'comments', CommentViewSet, basename='comment')
+# 新增路由 (Member A)
+router.register(r'body-metrics', BodyMetricViewSet, basename='bodymetric')
+router.register(r'article-categories', ArticleCategoryViewSet, basename='articlecategory')
+router.register(r'articles', HealthArticleViewSet, basename='healtharticle')
+router.register(r'read-history', UserReadHistoryViewSet, basename='userreadhistory')
+router.register(r'system-logs', SystemLogViewSet, basename='systemlog')
 
 urlpatterns = [
 # ==========================================================
@@ -67,6 +84,9 @@ urlpatterns = [
     path('report/', report_page_view, name='report_page'),
     path('profile/', profile_page_view, name='profile'),
     path('friends/', friends_page_view, name='friends_page'),
+    # 新增页面路由 (Member B)
+    path('body-metrics/', body_metrics_page_view, name='body_metrics_page'),
+    path('articles/', articles_page_view, name='articles_page'),
 
     # ==========================================================
     #  API 路由 (API Routes)
@@ -91,7 +111,11 @@ urlpatterns = [
     # 4. 好友健康动态 API
     path('api/feed/', HealthFeedView.as_view(), name='api-health-feed'),
 
-    # 5. 所有由 ViewSet 自动生成的 CRUD API
+    # 5. 数据导入导出 API (Member C)
+    path('api/export/', DataExportView.as_view(), name='api-data-export'),
+    path('api/import/foods/', FoodImportView.as_view(), name='api-food-import'),
+
+    # 6. 所有由 ViewSet 自动生成的 CRUD API
     path('api/', include(router.urls)),
 ]
 

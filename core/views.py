@@ -222,6 +222,21 @@ def friends_page_view(request):
     """
     return render(request, 'friends.html')
 
+# 新增页面视图 (Member B)
+@login_required(login_url='/login/')
+def body_metrics_page_view(request):
+    """
+    渲染身体指标页面
+    """
+    return render(request, 'body_metrics.html')
+
+@login_required(login_url='/login/')
+def articles_page_view(request):
+    """
+    渲染健康文章页面
+    """
+    return render(request, 'articles.html')
+
 @csrf_exempt # 临时禁用CSRF保护，方便前端直接调用
 def register_view(request):
     if request.method == 'POST':
@@ -274,7 +289,8 @@ class SleepRecordViewSet(viewsets.ModelViewSet):
         # 【优化】支持按 record_date 查询参数进行筛选
         record_date_str = self.request.query_params.get('record_date')
         if record_date_str:
-            # 对于睡眠记录，我们约定按“起床日期”进行筛选
+            # 对于睡眠记录，我们约定按"起床日期"进行筛选
+            # 前端传入的 record_date 就是期望查看的起床日期
             queryset = queryset.filter(wakeup_time__date=record_date_str)
             
         return queryset.order_by('-wakeup_time')
@@ -1357,3 +1373,196 @@ class CommentViewSet(viewsets.ModelViewSet):
         if instance.user != self.request.user:
             raise PermissionDenied("你只能删除自己的评论。")
         instance.delete()
+
+
+# ============================================================
+# 新增 API 视图 (Member A)
+# ============================================================
+
+from .serializers import (
+    BodyMetricSerializer, ArticleCategorySerializer, 
+    HealthArticleSerializer, UserReadHistorySerializer, SystemLogSerializer
+)
+from .models import BodyMetric, ArticleCategory, HealthArticle, UserReadHistory, SystemLog
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class BodyMetricViewSet(viewsets.ModelViewSet):
+    """
+    身体指标 API：用于记录和展示用户的体重、身高、BMI。
+    BMI 由后端自动计算。
+    """
+    serializer_class = BodyMetricSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # 用户只能查看自己的数据
+        return BodyMetric.objects.filter(user=self.request.user).order_by('-record_date')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ArticleCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    文章分类 API（只读）。
+    """
+    queryset = ArticleCategory.objects.all()
+    serializer_class = ArticleCategorySerializer
+    permission_classes = [IsAuthenticated]
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class HealthArticleViewSet(viewsets.ModelViewSet):
+    """
+    健康文章 API。
+    普通用户只能读取，管理员可以创建/修改/删除。
+    """
+    serializer_class = HealthArticleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = HealthArticle.objects.all()
+        # 支持按分类过滤
+        category_id = self.request.query_params.get('category')
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        # 只有管理员可以创建文章
+        if not self.request.user.is_staff:
+            raise PermissionDenied("只有管理员可以发布文章。")
+        serializer.save(author=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        """重写 retrieve 方法，在获取文章详情时自动记录阅读历史"""
+        instance = self.get_object()
+        # 记录阅读历史
+        UserReadHistory.objects.get_or_create(
+            user=request.user,
+            article=instance
+        )
+        # 增加阅读量 (也可以通过触发器实现)
+        instance.views += 1
+        instance.save(update_fields=['views'])
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserReadHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    用户阅读历史 API（只读）。
+    """
+    serializer_class = UserReadHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return UserReadHistory.objects.filter(user=self.request.user)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SystemLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    系统日志 API（只读，仅管理员可访问）。
+    """
+    serializer_class = SystemLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_staff:
+            raise PermissionDenied("只有管理员可以查看系统日志。")
+        return SystemLog.objects.all()
+
+
+# ============================================================
+# 数据导入导出 API (Member C)
+# ============================================================
+
+from .data_io import ExcelExporter, CSVExporter, export_user_data_json, ExcelImporter
+
+@method_decorator(csrf_exempt, name='dispatch')
+class DataExportView(APIView):
+    """
+    数据导出 API。
+    支持 Excel、CSV、JSON 格式导出用户健康数据。
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        GET /api/export/?format=excel&start_date=2024-01-01&end_date=2024-01-31
+        
+        参数:
+            format: excel, csv, json (默认 excel)
+            start_date: 开始日期 (YYYY-MM-DD)
+            end_date: 结束日期 (YYYY-MM-DD)
+        """
+        export_format = request.query_params.get('format', 'excel').lower()
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        
+        # 解析日期
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else timezone.now().date()
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else end_date - timedelta(days=30)
+        except ValueError:
+            return Response({'status': 'error', 'message': '日期格式错误，请使用 YYYY-MM-DD'}, status=400)
+        
+        user = request.user
+        
+        if export_format == 'excel':
+            try:
+                return ExcelExporter.export_user_health_data(user, start_date, end_date)
+            except ImportError as e:
+                return Response({'status': 'error', 'message': str(e)}, status=500)
+        
+        elif export_format == 'csv':
+            return CSVExporter.export_sleep_csv(user, start_date, end_date)
+        
+        elif export_format == 'json':
+            return export_user_data_json(user)
+        
+        else:
+            return Response({'status': 'error', 'message': f'不支持的格式: {export_format}'}, status=400)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class FoodImportView(APIView):
+    """
+    食物数据导入 API (仅管理员)。
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """
+        POST /api/import/foods/
+        
+        请求体: multipart/form-data，包含 file 字段
+        """
+        if not request.user.is_staff:
+            raise PermissionDenied("只有管理员可以导入食物数据。")
+        
+        if 'file' not in request.FILES:
+            return Response({'status': 'error', 'message': '请上传 Excel 文件'}, status=400)
+        
+        file = request.FILES['file']
+        
+        try:
+            update_existing = request.data.get('update_existing', 'false').lower() == 'true'
+            result = ExcelImporter.import_food_items(file, update_existing)
+            
+            return Response({
+                'status': 'success',
+                'message': f"导入完成: 新增 {result['created']} 条, 更新 {result['updated']} 条",
+                'details': result
+            })
+        except ImportError as e:
+            return Response({'status': 'error', 'message': str(e)}, status=500)
+        except Exception as e:
+            return Response({'status': 'error', 'message': f'导入失败: {str(e)}'}, status=500)
+
+

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}身体指标 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3"><i class="bi bi-heart-pulse me-2"></i>身体指标记录</h1>
+            <p class="text-muted mb-0">跟踪您的体重和BMI变化趋势</p>
+        </div>
+        <div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bodyMetricModal">
+                <i class="bi bi-plus-lg me-1"></i>添加记录
+            </button>
+        </div>
+    </header>
+
+    <!-- 最新数据卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <p class="text-muted mb-1">当前体重</p>
+                    <h2 class="display-5 fw-bold" id="current-weight">-- kg</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <p class="text-muted mb-1">当前身高</p>
+                    <h2 class="display-5 fw-bold" id="current-height">-- cm</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <p class="text-muted mb-1">BMI 指数</p>
+                    <h2 class="display-5 fw-bold" id="current-bmi">--</h2>
+                    <span class="badge" id="bmi-status">未知</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史趋势图表 -->
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>体重与BMI趋势</h5>
+                <select class="form-select form-select-sm w-auto" id="chart-range">
+                    <option value="7">近7天</option>
+                    <option value="30" selected>近30天</option>
+                    <option value="90">近3个月</option>
+                </select>
+            </div>
+            <div class="card-body">
+                <div id="trend-chart" style="height: 350px;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 历史记录表格 -->
+    <section>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-table me-2"></i>历史记录</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="history-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>体重 (kg)</th>
+                                <th>身高 (cm)</th>
+                                <th>BMI</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- 添加/编辑记录模态框 -->
+<div class="modal fade" id="bodyMetricModal" tabindex="-1" aria-labelledby="bodyMetricModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bodyMetricModalLabel">记录身体指标</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="body-metric-form">
+                    {% csrf_token %}
+                    <input type="hidden" id="editing-id">
+                    <div class="mb-3">
+                        <label for="weight-input" class="form-label">体重 (kg)</label>
+                        <input type="number" step="0.1" class="form-control" id="weight-input" placeholder="例如: 70.5" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="height-input" class="form-label">身高 (cm)</label>
+                        <input type="number" step="0.1" class="form-control" id="height-input" placeholder="例如: 175" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="record-date-input" class="form-label">记录日期</label>
+                        <input type="date" class="form-control" id="record-date-input" required>
+                    </div>
+                    <!-- BMI 预览 -->
+                    <div class="alert alert-info" id="bmi-preview">
+                        <strong>预计BMI:</strong> <span id="preview-bmi-value">--</span>
+                        <span class="badge ms-2" id="preview-bmi-status">--</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" form="body-metric-form" class="btn btn-primary">保存记录</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="{% static 'js/body_metrics.js' %}"></script>
+{% endblock %}

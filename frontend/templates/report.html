@@ -5,21 +5,91 @@
 
 {% block content %}
 <div class="container">
-    <header class="mb-4">
-        <h1 class="h3">健康报告</h1>
-        <p class="text-muted">深入分析您的健康数据，发现趋势，获取建议。</p>
+    <header class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3"><i class="bi bi-file-earmark-medical me-2"></i>健康报告</h1>
+            <p class="text-muted mb-0">深入分析您的健康数据，发现趋势，获取建议。</p>
+        </div>
+        <div class="d-flex align-items-center">
+            <!-- 日期范围选择 -->
+            <div class="input-group me-2" style="width: auto;">
+                <input type="date" class="form-control" id="start-date">
+                <span class="input-group-text">至</span>
+                <input type="date" class="form-control" id="end-date">
+            </div>
+            <button class="btn btn-outline-primary me-2" id="refresh-report-btn">
+                <i class="bi bi-arrow-clockwise me-1"></i>刷新
+            </button>
+            <!-- 导出下拉菜单 -->
+            <div class="dropdown">
+                <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                    <i class="bi bi-download me-1"></i>导出数据
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="exportData('json')"><i
+                                class="bi bi-filetype-json me-2"></i>导出为 JSON</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportData('csv')"><i
+                                class="bi bi-filetype-csv me-2"></i>导出为 CSV (睡眠)</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportData('excel')"><i
+                                class="bi bi-file-earmark-excel me-2"></i>导出为 Excel</a></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li><span class="dropdown-item-text text-muted small">Excel 需要安装 openpyxl</span></li>
+                </ul>
+            </div>
+        </div>
     </header>
 
-    <!-- 2. 综合健康报告区域 -->
-    <section>
-        <h3 class="mb-3">本周综合健康评估</h3>
-        <div id="health-report-container">
-            <!-- JS将在这里动态填充报告内容 -->
-            <div class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">正在生成报告...</span>
+    <!-- 综合健康报告区域 -->
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-activity me-2"></i>综合健康评估</h5>
+            </div>
+            <div class="card-body" id="health-report-container">
+                <!-- JS将在这里动态填充报告内容 -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">正在生成报告...</span>
+                    </div>
+                    <p class="mt-2 text-muted">正在生成报告...</p>
                 </div>
-                <p class="mt-2">正在生成报告...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 数据统计概览 -->
+    <section class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-moon-stars display-4 text-primary mb-2"></i>
+                    <h5 class="card-title">睡眠记录</h5>
+                    <h3 class="mb-0" id="sleep-count">--</h3>
+                    <small class="text-muted">条记录</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-bicycle display-4 text-success mb-2"></i>
+                    <h5 class="card-title">运动记录</h5>
+                    <h3 class="mb-0" id="sport-count">--</h3>
+                    <small class="text-muted">条记录</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-cup-hot display-4 text-warning mb-2"></i>
+                    <h5 class="card-title">饮食记录</h5>
+                    <h3 class="mb-0" id="diet-count">--</h3>
+                    <small class="text-muted">条记录</small>
+                </div>
             </div>
         </div>
     </section>
@@ -27,6 +97,30 @@
 {% endblock %}
 
 {% block extra_js %}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{% static 'js/report.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'js/report.js' %}"></script>
+<script>
+    // 数据导出功能
+    function exportData(format) {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        let url = `/api/export/?format=${format}`;
+        if (startDate) url += `&start_date=${startDate}`;
+        if (endDate) url += `&end_date=${endDate}`;
+
+        // 使用 window.location 触发文件下载
+        window.location.href = url;
+    }
+
+    // 初始化日期选择器
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+
+        document.getElementById('end-date').value = today.toISOString().slice(0, 10);
+        document.getElementById('start-date').value = thirtyDaysAgo.toISOString().slice(0, 10);
+    });
+</script>
 {% endblock %}

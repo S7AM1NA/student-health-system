@@ -1,33 +1,73 @@
-# Python大作业 学生健康管理系统
+# 学生健康管理系统 - 数据库课程设计
 
-BUAA_2025
+> 北京航空航天大学 2025 数据库课程设计项目
 
-## 项目当前进度
+## 📌 项目概述
 
-**已完成。**
+本项目是一个基于 Django + SQLite 的学生健康管理系统，满足数据库课程设计的全部要求：
 
-*   ✅ **项目初始化**: 已创建Django项目及核心`core`应用。
-*   ✅ **数据库模型**: 已定义 `CustomUser`, `SleepRecord`, `SportRecord`, `FoodItem`, `Meal`, `MealItem` 模型并完成首次数据库迁移。
-*   ✅ **版本控制**: 项目已初始化为Git仓库，并与远程GitHub仓库关联。
-*   ✅ **基础用户API**: 已完成用户**注册、登录、注销**的后端API接口，可供前端调用。
-*   ✅ **健康记录API**: 已完成用户增删改查**睡眠、运动、饮食**的后端API接口，可供前端调用。
-*   ✅ **前端基本骨架**: 前端已完成开发目录、页脚、主看板以及各个健康信息的页面。并已与后端API对接。
-*   ✅ **选做内容API**: 已完成健康目标、健康异常预警、根据运动情况饮食推荐以及好友社交的后端API接口。
-*   ✅ **选做内容前端**: 已完成健康目标、健康异常预警、根据运动情况饮食推荐以及好友社交的前端开发。
+| 课程要求 | 完成情况 |
+| :--- | :---: |
+| **14 个实体** | ✅ 14/12-15 |
+| **存储过程/触发器** | ✅ 4 个触发器 |
+| **外模式/视图** | ✅ 2 个视图 |
+| **3NF 规范化** | ✅ 已完成 |
+| **前端交互界面** | ✅ 12 个页面 |
+| **数据导入导出** | ✅ Excel/CSV/JSON |
 
-## 技术栈
+## 👥 团队分工
 
-*   **后端**: Django
-*   **数据库**: SQLite (开发阶段)
+| 成员 | 负责内容 | 完成状态 |
+| :--- | :--- | :---: |
+| **成员 A** | 数据库模型设计、迁移、触发器、视图、API 开发、系统日志 | ✅ 100% |
+| **成员 B** | 前端页面开发、ECharts 数据可视化、导出功能 | ✅ 100% |
+| **成员 C** | 数据导入导出模块、健康文章爬虫/生成器 | ✅ 100% |
+
+## 🗄️ 数据库实体清单 (14个)
+
+| # | 实体名 | 说明 |
+| :---: | :--- | :--- |
+| 1 | `CustomUser` | 用户信息 |
+| 2 | `SleepRecord` | 睡眠记录 |
+| 3 | `SportRecord` | 运动记录 |
+| 4 | `FoodItem` | 食物库 |
+| 5 | `Meal` | 餐次 |
+| 6 | `MealItem` | 餐品条目 |
+| 7 | `UserHealthGoal` | 健康目标 |
+| 8 | `Friendship` | 好友关系 |
+| 9 | `Comment` | 评论 |
+| 10 | `SystemLog` | 系统日志 **[新增]** |
+| 11 | `BodyMetric` | 身体指标 **[新增]** |
+| 12 | `ArticleCategory` | 文章分类 **[新增]** |
+| 13 | `HealthArticle` | 健康文章 **[新增]** |
+| 14 | `UserReadHistory` | 阅读历史 **[新增]** |
+
+## ⚙️ SQL 触发器与视图
+
+### 触发器 (4个)
+- `trg_calculate_sleep_duration` - 自动计算睡眠时长
+- `trg_calculate_bmi` - 自动计算 BMI
+- `trg_calculate_meal_item_calories` - 自动计算餐品热量
+- `trg_increment_article_views` - 自动增加文章阅读量
+
+### 视图 (2个)
+- `v_user_daily_summary` - 用户每日健康摘要
+- `v_user_health_data` - 用户完整健康数据聚合
+
+## 🛠️ 技术栈
+
+*   **后端**: Django 5.2 + Django REST Framework
+*   **数据库**: SQLite (开发) / MySQL (可切换)
+*   **前端**: HTML5 + CSS3 + JavaScript + Bootstrap 5
+*   **图表**: ECharts / Chart.js
 *   **版本控制**: Git & GitHub
-*   **开发环境**: Python 3.x (使用`venv`虚拟环境)
 
 ## 环境配置与启动 
 
 1. **克隆仓库**
 
    ```bash
-   git clone https://github.com/Cl0udTide/student-health-system.git
+   git clone https://github.com/S7AM1NA/student-health-system.git
    cd student-health-system
    ```
 

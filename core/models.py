@@ -199,3 +199,86 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.user} 对 {self.content_type.model} (ID: {self.object_id}) 的评论"
+
+# 10. 系统日志模型 (Member A)
+class SystemLog(models.Model):
+    """
+    记录用户的关键操作日志，用于安全审计。
+    """
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='system_logs', verbose_name="操作用户", null=True, blank=True)
+    action = models.CharField(max_length=255, verbose_name="操作行为")
+    ip_address = models.GenericIPAddressField(verbose_name="IP地址", null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name="操作时间")
+    details = models.TextField(verbose_name="详细信息", blank=True, null=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"[{self.timestamp}] {self.user} - {self.action}"
+
+# 11. 身体指标模型 (Member C -> Member A implemented)
+class BodyMetric(models.Model):
+    """
+    记录用户的体重、身高、BMI。
+    """
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='body_metrics')
+    weight = models.FloatField(verbose_name="体重(kg)")
+    height = models.FloatField(verbose_name="身高(cm)")
+    bmi = models.FloatField(verbose_name="BMI指数", blank=True, null=True)
+    record_date = models.DateField(default=timezone.now, verbose_name="记录日期")
+
+    def save(self, *args, **kwargs):
+        # 自动计算 BMI
+        if self.weight and self.height:
+            # height 转为米
+            height_m = self.height / 100
+            self.bmi = round(self.weight / (height_m ** 2), 2)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.record_date} (BMI: {self.bmi})"
+
+# 12. 文章分类模型 (Member C -> Member A implemented)
+class ArticleCategory(models.Model):
+    """
+    健康文章的分类，如：睡眠知识、运动指导、饮食建议。
+    """
+    name = models.CharField(max_length=100, verbose_name="分类名称", unique=True)
+    description = models.TextField(verbose_name="分类描述", blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+# 13. 健康文章模型 (Member C -> Member A implemented)
+class HealthArticle(models.Model):
+    """
+    健康科普文章。
+    """
+    category = models.ForeignKey(ArticleCategory, on_delete=models.SET_NULL, null=True, related_name='articles', verbose_name="所属分类")
+    title = models.CharField(max_length=200, verbose_name="文章标题")
+    content = models.TextField(verbose_name="文章内容")
+    author = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='authored_articles', verbose_name="作者")
+    publish_date = models.DateTimeField(default=timezone.now, verbose_name="发布时间")
+    views = models.PositiveIntegerField(default=0, verbose_name="阅读量")
+
+    class Meta:
+        ordering = ['-publish_date']
+
+    def __str__(self):
+        return self.title
+
+# 14. 阅读历史模型 (Member C -> Member A implemented)
+class UserReadHistory(models.Model):
+    """
+    记录用户阅读了哪些文章。
+    """
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='read_history')
+    article = models.ForeignKey(HealthArticle, on_delete=models.CASCADE, related_name='read_records')
+    read_time = models.DateTimeField(auto_now_add=True, verbose_name="阅读时间")
+
+    class Meta:
+        ordering = ['-read_time']
+
+    def __str__(self):
+        return f"{self.user.username} viewed {self.article.title}"

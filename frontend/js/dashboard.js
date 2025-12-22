@@ -109,10 +109,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (summaryWrapper) {
                 const heading = summaryWrapper.querySelector('.alert-heading');
                 const suggestionP = summaryWrapper.querySelector('#summary-suggestion');
-                if(heading) heading.textContent = "今日小结"; // 确保标题正确
-                if(suggestionP) suggestionP.textContent = data.health_summary.suggestion;
+                if (heading) heading.textContent = "今日小结"; // 确保标题正确
+                if (suggestionP) suggestionP.textContent = data.health_summary.suggestion;
             }
-            
+
             renderGoalsProgress(data);
         }
     }
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const ringColors = {
             sport: { solid: '#ff6384', faded: '#ff638433' },
             sleep: { solid: '#ffcd56', faded: '#ffcd5633' },
-            diet:  { solid: '#36a2eb', faded: '#36a2eb33' }
+            diet: { solid: '#36a2eb', faded: '#36a2eb33' }
         };
 
         // ⭐ 核心修改在这里：创建数据集的函数
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     innerEnd: cornerRadius,
                 },
                 // 这是一个非官方但部分版本有效的技巧，用于平滑处理
-                borderSkipped: false, 
+                borderSkipped: false,
             };
         }
 
@@ -187,9 +187,9 @@ document.addEventListener('DOMContentLoaded', function () {
             type: 'doughnut',
             data: {
                 datasets: [
-                    createRingDataset(progress_sport, ringColors.sport),
-                    createRingDataset(progress_sleep, ringColors.sleep),
-                    createRingDataset(progress_diet, ringColors.diet),
+                    createRingDataset(progress_sleep, ringColors.sleep),  // 睡眠 - 外环
+                    createRingDataset(progress_sport, ringColors.sport),  // 运动 - 中环
+                    createRingDataset(progress_diet, ringColors.diet),    // 饮食 - 内环
                 ]
             },
             // options 部分与 V4 保持一致，确保重叠和样式
@@ -224,14 +224,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-    
+
     // ===================================================================
     // 4. 定义主函数来发起API请求
     // ===================================================================
     async function fetchDashboardData(dateStr) {
         // 1. 使用传入的日期字符串来构建API URL
         const DASHBOARD_API_URL = `${API_BASE_URL}/dashboard/${dateStr}/`;
-        
+
         // 2. 显示一个加载中的状态
         document.body.style.cursor = 'wait';
         // 你可以更进一步，比如让卡片内容暂时模糊或显示一个加载动画
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('无法从服务器获取数据:', error);
 
             const insightsSection = document.getElementById('insights-section');
-            if(insightsSection) {
+            if (insightsSection) {
                 insightsSection.innerHTML = `
                     <div class="col-12">
                         <div class="alert alert-danger">
@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fetchDashboardData(todayStr);
 
         // 4. 监听日期选择器的 'change' 事件
-        dateSelector.addEventListener('change', function() {
+        dateSelector.addEventListener('change', function () {
             // 当用户选择了新的日期
             const selectedDate = this.value;
             if (selectedDate) {

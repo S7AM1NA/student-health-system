@@ -1,7 +1,11 @@
 # core/serializers.py
 from rest_framework import serializers
 from django.db.models import Q
-from .models import SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser, UserHealthGoal, Friendship, Comment, ContentType
+from .models import (
+    SleepRecord, SportRecord, FoodItem, Meal, MealItem, CustomUser, 
+    UserHealthGoal, Friendship, Comment, ContentType,
+    BodyMetric, ArticleCategory, HealthArticle, UserReadHistory, SystemLog
+)
 
 class SleepRecordSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,7 +42,7 @@ class MealItemSerializer(serializers.ModelSerializer):
 
 
 class MealSerializer(serializers.ModelSerializer):
-    """用于展示一“餐”的完整信息，包括它包含的所有食物"""
+    """用于展示一"餐"的完整信息，包括它包含的所有食物"""
     # 使用嵌套序列化，当获取一餐的详情时，会把关联的 MealItem 一起显示出来
     meal_items = MealItemSerializer(many=True, read_only=True)
     # 直接从模型的 @property 获取总热量
@@ -145,3 +149,72 @@ class CommentSerializer(serializers.ModelSerializer):
             'content_type', 'object_id', 'user'
         ]
         read_only_fields = ['id', 'author_username', 'created_at', 'user']
+
+
+# ============================================================
+# 新增序列化器 (Member A)
+# ============================================================
+
+class BodyMetricSerializer(serializers.ModelSerializer):
+    """
+    身体指标序列化器：用于记录和展示用户的体重、身高、BMI。
+    BMI 由后端自动计算，前端只需提交 weight 和 height。
+    """
+    class Meta:
+        model = BodyMetric
+        fields = ['id', 'user', 'weight', 'height', 'bmi', 'record_date']
+        read_only_fields = ['id', 'user', 'bmi']
+
+
+class ArticleCategorySerializer(serializers.ModelSerializer):
+    """
+    文章分类序列化器。
+    """
+    article_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArticleCategory
+        fields = ['id', 'name', 'description', 'article_count']
+
+    def get_article_count(self, obj):
+        return obj.articles.count()
+
+
+class HealthArticleSerializer(serializers.ModelSerializer):
+    """
+    健康文章序列化器。
+    """
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    author_name = serializers.CharField(source='author.username', read_only=True)
+
+    class Meta:
+        model = HealthArticle
+        fields = [
+            'id', 'title', 'content', 'category', 'category_name',
+            'author', 'author_name', 'publish_date', 'views'
+        ]
+        read_only_fields = ['id', 'author', 'author_name', 'publish_date', 'views']
+
+
+class UserReadHistorySerializer(serializers.ModelSerializer):
+    """
+    用户阅读历史序列化器。
+    """
+    article_title = serializers.CharField(source='article.title', read_only=True)
+
+    class Meta:
+        model = UserReadHistory
+        fields = ['id', 'user', 'article', 'article_title', 'read_time']
+        read_only_fields = ['id', 'user', 'read_time']
+
+
+class SystemLogSerializer(serializers.ModelSerializer):
+    """
+    系统日志序列化器（只读，仅供管理员查看）。
+    """
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = SystemLog
+        fields = ['id', 'username', 'action', 'ip_address', 'timestamp', 'details']
+        read_only_fields = fields  # 全部只读
