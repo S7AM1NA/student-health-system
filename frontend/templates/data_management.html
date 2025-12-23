@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}数据管理 - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-database-gear me-2"></i>系统数据管理</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info border-0 bg-light">
+                        <i class="bi bi-info-circle-fill me-2 text-primary"></i>
+                        <strong>说明：</strong> 此功能仅限管理员使用。您可以通过上传 Excel 文件批量更新系统的食物数据库。
+                    </div>
+
+                    <h5 class="card-title mt-4 mb-3">批量导入食物数据</h5>
+                    <form id="import-form">
+                        <div class="mb-3">
+                            <label for="foodFile" class="form-label">选择 Excel 文件 (.xlsx)</label>
+                            <input class="form-control" type="file" id="foodFile" accept=".xlsx" required>
+                            <div class="form-text">
+                                Excel 格式要求：第一行为表头，包含 [食物名称, 热量, 蛋白质, 脂肪, 碳水]
+                            </div>
+                        </div>
+
+                        <div class="mb-4 form-check">
+                            <input type="checkbox" class="form-check-input" id="updateExisting">
+                            <label class="form-check-label" for="updateExisting">如果不小心导入了同名食物，允许覆盖更新旧数据</label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="importBtn">
+                                <i class="bi bi-cloud-upload me-2"></i>开始导入
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- 进度/结果展示区域 -->
+                    <div id="result-area" class="mt-4 d-none">
+                        <hr>
+                        <div id="loading-spinner" class="text-center py-3 d-none">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">正在解析并导入数据，请稍候...</p>
+                        </div>
+
+                        <div id="success-message" class="alert alert-success d-none">
+                            <h5 class="alert-heading"><i class="bi bi-check-circle-fill me-2"></i>导入成功！</h5>
+                            <p id="success-text" class="mb-0"></p>
+                        </div>
+
+                        <div id="error-message" class="alert alert-danger d-none">
+                            <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>导入失败</h5>
+                            <p id="error-text" class="mb-0"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('import-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // 1. 准备数据
+        const fileInput = document.getElementById('foodFile');
+        const updateExisting = document.getElementById('updateExisting').checked;
+
+        if (!fileInput.files[0]) {
+            alert("请先选择一个文件！");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('update_existing', updateExisting);
+
+        // 2. 更新UI状态
+        const btn = document.getElementById('importBtn');
+        const resultArea = document.getElementById('result-area');
+        const spinner = document.getElementById('loading-spinner');
+        const successMsg = document.getElementById('success-message');
+        const errorMsg = document.getElementById('error-message');
+
+        btn.disabled = true;
+        resultArea.classList.remove('d-none');
+        spinner.classList.remove('d-none');
+        successMsg.classList.add('d-none');
+        errorMsg.classList.add('d-none');
+
+        try {
+            // 3. 发起请求
+            // 注意：这里我们使用 fetch 并在 headers 中带上 CSRF Token
+            // 虽然API目前豁免了CSRF，但最好还是带上以防万一
+            const response = await fetch('/api/import/foods/', {
+                method: 'POST',
+                body: formData
+                // 注意: 用于上传文件时不要手动设置 'Content-Type'，浏览器会自动设置并加上 boundary
+            });
+
+            const result = await response.json();
+
+            // 4. 处理结果
+            spinner.classList.add('d-none');
+
+            if (response.ok && result.status === 'success') {
+                successMsg.classList.remove('d-none');
+                document.getElementById('success-text').textContent = result.message;
+                // 清空文件选择
+                fileInput.value = '';
+            } else {
+                throw new Error(result.message || '服务器未知错误');
+            }
+
+        } catch (error) {
+            spinner.classList.add('d-none');
+            errorMsg.classList.remove('d-none');
+            document.getElementById('error-text').textContent = error.message;
+        } finally {
+            btn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

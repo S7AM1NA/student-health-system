@@ -24,7 +24,7 @@ from .serializers import (
 
 from django.db.models import Q
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 
 from datetime import datetime, time, timedelta
@@ -221,6 +221,12 @@ def friends_page_view(request):
     渲染好友社交页面的视图。
     """
     return render(request, 'friends.html')
+
+@login_required
+@user_passes_test(lambda u: u.is_staff, login_url='/dashboard/')
+def data_management_view(request):
+    """数据管理页面 (仅管理员)"""
+    return render(request, 'data_management.html')
 
 # 新增页面视图 (Member B)
 @login_required(login_url='/login/')

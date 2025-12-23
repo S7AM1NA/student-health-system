@@ -13,6 +13,7 @@ from .views import (
     friends_page_view,
     body_metrics_page_view,  # 新增 (Member B)
     articles_page_view,       # 新增 (Member B)
+    data_management_view,     # 新增 (Member B)
     register_view,
     login_view, 
     logout_view,
@@ -87,6 +88,7 @@ urlpatterns = [
     # 新增页面路由 (Member B)
     path('body-metrics/', body_metrics_page_view, name='body_metrics_page'),
     path('articles/', articles_page_view, name='articles_page'),
+    path('data-management/', data_management_view, name='data_management_page'),
 
     # ==========================================================
     #  API 路由 (API Routes)

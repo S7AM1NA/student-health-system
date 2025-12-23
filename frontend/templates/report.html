@@ -3,6 +3,40 @@
 
 {% block title %}健康报告 - {{ block.super }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media print {
+
+        /* 隐藏导航栏、按钮、页脚等不需要打印的元素 */
+        nav,
+        footer,
+        .btn,
+        .no-print {
+            display: none !important;
+        }
+
+        /* 确保容器宽度占满且不居中 */
+        .container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* 确保卡片没有阴影和边框，更适合打印 */
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* 保证背景色能被打印（需要在浏览器打印设置中勾选"背景图形"） */
+        body {
+            -webkit-print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <header class="d-flex flex-wrap justify-content-between align-items-center mb-4">
@@ -36,6 +70,8 @@
                     <li>
                         <hr class="dropdown-divider">
                     </li>
+                    <li><a class="dropdown-item" href="#" onclick="window.print()"><i class="bi bi-printer me-2"></i>打印
+                            / 另存为 PDF</a></li>
                     <li><span class="dropdown-item-text text-muted small">Excel 需要安装 openpyxl</span></li>
                 </ul>
             </div>

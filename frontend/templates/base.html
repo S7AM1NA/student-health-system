@@ -69,6 +69,13 @@
                         <a class="nav-link {% if request.resolver_match.url_name == 'articles_page' %}active{% endif %}"
                             href="{% url 'articles_page' %}">健康知识</a>
                     </li>
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link text-warning fw-bold" href="{% url 'data_management_page' %}">
+                            <i class="bi bi-gear-fill"></i> 数据管理
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
 
                 <!-- 3. 右侧用户菜单 (保持不变) -->
