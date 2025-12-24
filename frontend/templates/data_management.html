@@ -100,8 +100,14 @@
             // 3. 发起请求
             // 注意：这里我们使用 fetch 并在 headers 中带上 CSRF Token
             // 虽然API目前豁免了CSRF，但最好还是带上以防万一
+            // 获取 CSRF Token
+            const csrftoken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+
             const response = await fetch('/api/import/foods/', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                },
                 body: formData
                 // 注意: 用于上传文件时不要手动设置 'Content-Type'，浏览器会自动设置并加上 boundary
             });
