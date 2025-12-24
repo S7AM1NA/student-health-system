@@ -46,6 +46,48 @@ from .views import (
 from django.conf import settings
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+
+# 数据导出视图 - 使用纯 Django 函数视图实现
+@login_required
+def data_export_view(request):
+    """
+    数据导出 API (纯 Django 视图)
+    支持 Excel/CSV/JSON 格式导出用户健康数据
+    
+    GET /data-export/?format=excel&start_date=2024-01-01&end_date=2024-01-31
+    """
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    from .data_io import ExcelExporter, CSVExporter, export_user_data_json
+    
+    export_format = request.GET.get('format', 'excel').lower()
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    # 解析日期
+    try:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else timezone.now().date()
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else end_date - timedelta(days=30)
+    except ValueError:
+        return HttpResponse('日期格式错误，请使用 YYYY-MM-DD', status=400)
+    
+    user = request.user
+    
+    try:
+        if export_format == 'excel':
+            return ExcelExporter.export_user_health_data(user, start_date, end_date)
+        elif export_format == 'csv':
+            return CSVExporter.export_sleep_csv(user, start_date, end_date)
+        elif export_format == 'json':
+            return export_user_data_json(user)
+        else:
+            return HttpResponse(f'不支持的格式: {export_format}', status=400)
+    except ImportError as e:
+        return HttpResponse(f'缺少依赖: {e}', status=500)
+    except Exception as e:
+        return HttpResponse(f'导出失败: {e}', status=500)
 
 router = DefaultRouter()
 router.register(r'sleep', SleepRecordViewSet, basename='sleeprecord')
@@ -114,7 +156,7 @@ urlpatterns = [
     path('api/feed/', HealthFeedView.as_view(), name='api-health-feed'),
 
     # 5. 数据导入导出 API (Member C)
-    path('api/export/', DataExportView.as_view(), name='api-data-export'),
+    path('data-export/', data_export_view, name='api-data-export'),
     path('api/import/foods/', FoodImportView.as_view(), name='api-food-import'),
 
     # 6. 所有由 ViewSet 自动生成的 CRUD API

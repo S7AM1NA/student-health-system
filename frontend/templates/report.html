@@ -141,7 +141,7 @@
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
 
-        let url = `/api/export/?format=${format}`;
+        let url = `/data-export/?format=${format}`;
         if (startDate) url += `&start_date=${startDate}`;
         if (endDate) url += `&end_date=${endDate}`;
 
